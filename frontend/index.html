@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>재다 — 사진으로 보는 운동 포커스</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="tape-rule"></div>
+
+<div class="wrap">
+  <header class="hero">
+    <div>
+      <div class="eyebrow">바디랩</div>
+      <h1>사진 한 장,<br><span>운동 포커스</span> 한 장.</h1>
+    </div>
+    <div class="userbar hidden" id="userbar">
+      <span>안녕하세요, <strong id="userNickname">회원님</strong></span>
+      <button class="btn ghost" id="logoutBtn" style="padding:8px 14px;font-size:11px;">로그아웃</button>
+    </div>
+  </header>
+
+  <!-- ───────── 인증 화면 ───────── -->
+  <section id="authSection">
+    <div class="auth-box">
+      <h2 id="authTitle">로그인</h2>
+      <p id="authSub">계정으로 로그인하면 측정 기록과 운동 기록장이 저장돼요.</p>
+
+      <div class="auth-field" id="nicknameField" style="display:none;">
+        <label for="authNickname">닉네임</label>
+        <input type="text" id="authNickname" placeholder="예: 형준" maxlength="20">
+      </div>
+      <div class="auth-field">
+        <label for="authEmail">이메일</label>
+        <input type="email" id="authEmail" placeholder="you@example.com" autocomplete="username">
+      </div>
+      <div class="auth-field">
+        <label for="authPassword">비밀번호</label>
+        <input type="password" id="authPassword" placeholder="6자 이상" autocomplete="current-password">
+      </div>
+
+      <button class="btn" id="authSubmitBtn" style="width:100%;">로그인</button>
+      <div class="auth-error" id="authError"></div>
+      <div class="auth-switch">
+        <span id="authSwitchText">계정이 없으신가요?</span>
+        <a id="authSwitchLink">회원가입</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ───────── 메인 앱 (로그인 후) ───────── -->
+  <div id="appRoot" class="hidden">
+
+    <section id="journalSection">
+      <div class="sec-label"><span class="n">00</span> 오늘의 운동 기록</div>
+      <div class="journal-box">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+          <label class="mono" style="font-size:12px;color:var(--ink-dim);" for="journalDate">날짜</label>
+          <input type="date" id="journalDate">
+        </div>
+        <div class="journal-quick" id="journalQuick"></div>
+        <textarea id="journalNote" placeholder="오늘 한 운동을 적어보세요 (예: 레그프레스 3세트 x 12회)"></textarea>
+        <button class="btn" id="journalSaveBtn">기록 저장</button>
+        <div class="journal-stats" id="journalStats"></div>
+        <div id="journalList"></div>
+      </div>
+    </section>
+
+    <section id="uploadSection">
+      <div class="sec-label"><span class="n">01</span> 전신 사진 업로드</div>
+      <div class="drop" id="dropzone">
+        <div class="drop-title">사진을 끌어놓거나 클릭하세요</div>
+        <div class="drop-sub">정면, 전신이 나온 사진일수록 정확해요</div>
+        <input type="file" id="fileInput" accept="image/*">
+      </div>
+    </section>
+
+    <section id="stageSection" class="hidden">
+      <div class="sec-label"><span class="n">02</span> 측정 지점 확인</div>
+      <div class="stage" id="stage">
+        <div class="stage-hint" id="stageHint">분석 중…</div>
+        <canvas id="canvas"></canvas>
+      </div>
+      <div class="fallback-notice hidden" id="fallbackNotice">
+        <span>ⓘ</span>
+        <span><strong>자동 인식을 불러오지 못해 수동 모드로 전환했어요.</strong> 사진 위 6개 지점을 직접 탭해서 측정해 주세요.</span>
+      </div>
+      <div class="steps-dots hidden" id="stepsDots"></div>
+      <div class="status-line" id="statusLine"></div>
+      <div class="btn-row">
+        <button class="btn hidden" id="confirmBtn">이 지점으로 측정하기</button>
+        <button class="btn ghost hidden" id="manualBtn">지점이 정확하지 않아요 · 수동으로 찍기</button>
+        <button class="btn ghost" id="resetBtn">다른 사진으로</button>
+      </div>
+    </section>
+
+    <section id="resultSection" class="hidden">
+      <div class="sec-label"><span class="n">03</span> 측정 결과</div>
+      <button class="btn ghost" id="toggleHistoryBtn" style="margin-bottom:14px;">측정 기록 보기</button>
+      <div id="historyBox" class="hidden"></div>
+
+      <div class="readout-grid" id="readoutGrid"></div>
+
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:16px;">
+        <label class="mono" style="font-size:13px;color:var(--ink-dim);" for="waistInput">허리둘레(선택, cm)</label>
+        <input type="number" id="waistInput" placeholder="예: 76" min="40" max="160" style="width:90px;">
+        <button class="btn ghost" id="waistApply">반영해서 다시 분석</button>
+      </div>
+
+      <div class="ticket" id="typeTicket"></div>
+      <div id="flagsRow"></div>
+      <div id="recList"></div>
+
+      <div class="sec-label" style="margin-top:32px;"><span class="n">04</span> AI 코치에게 물어보기</div>
+      <div class="coach-box">
+        <div class="coach-head">
+          <span class="coach-dot"></span>
+          <div>
+            <div class="coach-title">AI 코치</div>
+            <div class="coach-sub">측정 결과를 기억하고 대화해요 · Claude 기반</div>
+          </div>
+        </div>
+        <div class="coach-messages" id="coachMessages"></div>
+        <div class="chips" id="coachChips">
+          <span class="chip" data-q="이 결과를 바탕으로 4주 운동 루틴을 세트·횟수까지 짜줘">4주 루틴 짜줘</span>
+          <span class="chip" data-q="왜 이 부위를 우선순위로 추천했는지 쉽게 설명해줘">왜 이 부위부터?</span>
+          <span class="chip" data-q="어깨를 좀 더 넓혀 보이고 싶어. 추천을 조정해줘">어깨 넓히고 싶어요</span>
+        </div>
+        <div class="coach-error" id="coachError">코치 응답을 받아오지 못했어요. 잠시 후 다시 시도해 주세요.</div>
+        <div class="coach-input-row">
+          <input type="text" id="coachInput" placeholder="궁금한 점을 물어보세요…" />
+          <button class="btn" id="coachSendBtn">전송</button>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <footer class="wrap">
+    참고용 프로토타입이며 의료적 진단을 대체하지 않아요. 통증이 있거나 체형 불균형이 걱정된다면 전문가와 상담을 권해요. 측정 기록과 운동 기록은 본인 계정으로 로그인했을 때만 저장·조회되며(Row Level Security 적용), AI 코치 대화는 서버를 거쳐 Anthropic API로 전달돼요.
+  </footer>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<script type="module" src="app.js"></script>
+</body>
+</html>
