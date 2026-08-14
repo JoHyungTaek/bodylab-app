@@ -49,6 +49,26 @@ app.post('/api/coach', requireUser, async (req, res) => {
     return res.status(500).json({ error: '서버에 ANTHROPIC_API_KEY가 설정되지 않았어요.' });
   }
 
+  // 최근 7일 실제 운동 기록을 조회해서 시스템 프롬프트에 덧붙임
+  let journalNote = '';
+  try {
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const { data: entries } = await supabaseAdmin
+      .from('journal_entries')
+      .select('entry_date, note')
+      .eq('user_id', req.user.id)
+      .gte('entry_date', sevenDaysAgo)
+      .order('entry_date', { ascending: true });
+
+    journalNote = entries && entries.length
+      ? '\n\n최근 7일 실제 운동 기록:\n' + entries.map(e => `- ${e.entry_date}: ${e.note}`).join('\n')
+      : '\n\n최근 7일간 운동 기록장에 기록된 내용이 없음 (아직 안 썼거나 쉬는 중).';
+  } catch (e) {
+    console.warn('journal fetch for coach failed:', e);
+  }
+
+  const fullSystem = (system || '') + journalNote;
+
   try {
     const anthropicRes = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -60,7 +80,7 @@ app.post('/api/coach', requireUser, async (req, res) => {
       body: JSON.stringify({
         model: 'claude-sonnet-4-6',
         max_tokens: 1000,
-        system,
+        system: fullSystem,
         messages
       })
     });

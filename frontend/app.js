@@ -17,6 +17,8 @@ const authTitle = document.getElementById('authTitle');
 const authSub = document.getElementById('authSub');
 const nicknameField = document.getElementById('nicknameField');
 const authNickname = document.getElementById('authNickname');
+const termsField = document.getElementById('termsField');
+const authTerms = document.getElementById('authTerms');
 const authEmail = document.getElementById('authEmail');
 const authPassword = document.getElementById('authPassword');
 const authSubmitBtn = document.getElementById('authSubmitBtn');
@@ -29,6 +31,8 @@ function setAuthMode(signup){
   authTitle.textContent = signup ? '회원가입' : '로그인';
   authSub.textContent = signup ? '이메일과 비밀번호로 새 계정을 만들어요.' : '계정으로 로그인하면 측정 기록과 운동 기록장이 저장돼요.';
   nicknameField.style.display = signup ? 'flex' : 'none';
+  termsField.style.display = signup ? 'flex' : 'none';
+  authTerms.checked = false;
   authSubmitBtn.textContent = signup ? '회원가입' : '로그인';
   authSwitchText.textContent = signup ? '이미 계정이 있으신가요?' : '계정이 없으신가요?';
   authSwitchLink.textContent = signup ? '로그인' : '회원가입';
@@ -42,6 +46,11 @@ authSubmitBtn.addEventListener('click', async () => {
   authError.style.display = 'none';
   if (!email || !password){
     authError.textContent = '이메일과 비밀번호를 입력해 주세요.';
+    authError.style.display = 'block';
+    return;
+  }
+  if (isSignupMode && !authTerms.checked){
+    authError.textContent = '이용약관 및 개인정보처리방침에 동의해 주세요.';
     authError.style.display = 'block';
     return;
   }
@@ -87,6 +96,7 @@ sb.auth.onAuthStateChange(async (event, session) => {
     journalDate.value = todayStr();
     renderJournalQuick();
     renderJournal();
+    refreshTrend();
   } else {
     authSection.classList.remove('hidden');
     appRoot.classList.add('hidden');
@@ -381,6 +391,7 @@ async function render(m){
         shoulder_tilt: m.shoulderTilt, hip_tilt: m.hipTilt,
         waist_cm: isNaN(waist) ? null : waist
       });
+      refreshTrend();
     } catch(e){ console.warn('measurement save failed', e); }
   }
 }
@@ -512,3 +523,64 @@ coachSendBtn.addEventListener('click', () => { const t = coachInput.value.trim()
 coachInput.addEventListener('keydown', e => { if (e.key === 'Enter') coachSendBtn.click(); });
 
 setAuthMode(false);
+
+/* ---------- 측정 추이 그래프 ---------- */
+let trendChartInstance = null;
+
+function destroyTrendChart(){
+  if (trendChartInstance){ trendChartInstance.destroy(); trendChartInstance = null; }
+}
+
+async function refreshTrend(){
+  if (!currentUser) return;
+  const { data, error } = await sb.from('measurements')
+    .select('measured_at, shoulder_hip_ratio')
+    .eq('user_id', currentUser.id)
+    .order('measured_at', { ascending: true })
+    .limit(20);
+
+  const canvas = document.getElementById('trendChart');
+  const emptyMsg = document.getElementById('trendEmpty');
+  if (!canvas) return;
+
+  if (error || !data || data.length < 2){
+    canvas.style.display = 'none';
+    if (emptyMsg) emptyMsg.style.display = 'block';
+    return;
+  }
+  canvas.style.display = 'block';
+  if (emptyMsg) emptyMsg.style.display = 'none';
+
+  const labels = data.map(r => new Date(r.measured_at).toLocaleDateString('ko-KR', { month:'numeric', day:'numeric' }));
+  const values = data.map(r => Number(r.shoulder_hip_ratio));
+
+  destroyTrendChart();
+  trendChartInstance = new Chart(canvas.getContext('2d'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: '어깨:골반 비율',
+        data: values,
+        borderColor: '#E8B923',
+        backgroundColor: 'rgba(232,185,35,0.15)',
+        borderWidth: 2,
+        pointBackgroundColor: '#E8B923',
+        pointRadius: 4,
+        tension: 0.25,
+        fill: true
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: c => `비율 ${c.parsed.y.toFixed(2)}` } }
+      },
+      scales: {
+        x: { ticks: { color: '#9CA3A8' }, grid: { color: '#343B41' } },
+        y: { ticks: { color: '#9CA3A8' }, grid: { color: '#343B41' } }
+      }
+    }
+  });
+}

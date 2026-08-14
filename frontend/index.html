@@ -34,6 +34,12 @@
         <label for="authNickname">닉네임</label>
         <input type="text" id="authNickname" placeholder="예: 형준" maxlength="20">
       </div>
+      <div class="auth-field" id="termsField" style="display:none;">
+        <label style="display:flex; align-items:flex-start; gap:8px; font-size:12.5px; color:var(--ink-dim); cursor:pointer;">
+          <input type="checkbox" id="authTerms" style="margin-top:3px; width:auto;">
+          <span><a href="terms.html" target="_blank" style="color:var(--tape); text-decoration:underline;">이용약관</a> 및 <a href="privacy.html" target="_blank" style="color:var(--tape); text-decoration:underline;">개인정보처리방침</a>에 동의합니다. (필수)</span>
+        </label>
+      </div>
       <div class="auth-field">
         <label for="authEmail">이메일</label>
         <input type="email" id="authEmail" placeholder="you@example.com" autocomplete="username">
@@ -104,6 +110,11 @@
       <div id="historyBox" class="hidden"></div>
 
       <div class="readout-grid" id="readoutGrid"></div>
+      <div class="trend-box">
+          <div class="sec-label" style="margin-top:20px;"><span class="n">·</span> 측정 추이</div>
+          <canvas id="trendChart" height="220"></canvas>
+          <div class="history-empty" id="trendEmpty" style="display:none;">측정을 2번 이상 하면 추이 그래프가 나타나요.</div>
+      </div>
 
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:16px;">
         <label class="mono" style="font-size:13px;color:var(--ink-dim);" for="waistInput">허리둘레(선택, cm)</label>
@@ -145,6 +156,7 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 <script src="config.js"></script>
 <script type="module" src="app.js"></script>
 </body>
