@@ -18,6 +18,8 @@ if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) console.warn('⚠️  SUPABASE_
 
 const supabaseAdmin = createClient(SUPABASE_URL || '', SUPABASE_SERVICE_ROLE_KEY || '');
 
+const DAILY_COACH_LIMIT = 20;
+
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: '1mb' }));
@@ -49,7 +51,24 @@ app.post('/api/coach', requireUser, async (req, res) => {
     return res.status(500).json({ error: '서버에 ANTHROPIC_API_KEY가 설정되지 않았어요.' });
   }
 
-  // 최근 7일 실제 운동 기록을 조회해서 시스템 프롬프트에 덧붙임
+  // 하루 사용량 제한 확인
+  const today = new Date().toISOString().slice(0, 10);
+  let currentCount = 0;
+  try {
+    const { data: usageRow } = await supabaseAdmin
+      .from('coach_usage')
+      .select('count')
+      .eq('user_id', req.user.id)
+      .eq('usage_date', today)
+      .maybeSingle();
+    currentCount = usageRow?.count || 0;
+  } catch (e) {
+    console.warn('usage check failed:', e);
+  }
+  if (currentCount >= DAILY_COACH_LIMIT) {
+    return res.status(429).json({ error: `오늘 AI 코치에게 물어볼 수 있는 횟수(${DAILY_COACH_LIMIT}회)를 다 쓰셨어요. 내일 다시 이용해 주세요.` });
+  }
+
   let journalNote = '';
   try {
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
@@ -90,10 +109,32 @@ app.post('/api/coach', requireUser, async (req, res) => {
       console.error('Anthropic API error:', data);
       return res.status(anthropicRes.status).json({ error: '코치 응답을 받아오지 못했어요.', detail: data });
     }
+
+    // 성공한 요청만 사용량에 카운트
+    try {
+      await supabaseAdmin.from('coach_usage').upsert(
+        { user_id: req.user.id, usage_date: today, count: currentCount + 1 },
+        { onConflict: 'user_id,usage_date' }
+      );
+    } catch (e) {
+      console.warn('usage increment failed:', e);
+    }
+
     res.json(data);
   } catch (err) {
     console.error('coach proxy failed:', err);
     res.status(500).json({ error: '코치 요청 중 오류가 발생했어요.' });
+  }
+});
+
+app.delete('/api/account', requireUser, async (req, res) => {
+  try {
+    const { error } = await supabaseAdmin.auth.admin.deleteUser(req.user.id);
+    if (error) throw error;
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('account delete failed:', err);
+    res.status(500).json({ error: '계정 삭제에 실패했어요.' });
   }
 });
 

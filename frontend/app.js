@@ -12,6 +12,30 @@ const appRoot = document.getElementById('appRoot');
 const userbar = document.getElementById('userbar');
 const userNickname = document.getElementById('userNickname');
 const logoutBtn = document.getElementById('logoutBtn');
+const tabNav = document.getElementById('tabNav');
+const tabButtons = document.querySelectorAll('.tab-btn');
+const tabPanels = {
+  measure: document.getElementById('tab-measure'),
+  journal: document.getElementById('tab-journal'),
+  mypage: document.getElementById('tab-mypage')
+};
+const mypageEmail = document.getElementById('mypageEmail');
+const mypageNickname = document.getElementById('mypageNickname');
+const mypageNicknameSave = document.getElementById('mypageNicknameSave');
+const mypageProfileMsg = document.getElementById('mypageProfileMsg');
+const statMeasureCount = document.getElementById('statMeasureCount');
+const statStreak = document.getElementById('statStreak');
+const statTotalDays = document.getElementById('statTotalDays');
+const deleteAccountBtn = document.getElementById('deleteAccountBtn');
+const statCoachUsage = document.getElementById('statCoachUsage');
+const COACH_DAILY_LIMIT = 20;
+
+function switchTab(name){
+  Object.entries(tabPanels).forEach(([key, el]) => el.classList.toggle('hidden', key !== name));
+  tabButtons.forEach(b => b.classList.toggle('active', b.dataset.tab === name));
+  if (name === 'mypage') renderMyPageStats();
+}
+tabButtons.forEach(b => b.addEventListener('click', () => switchTab(b.dataset.tab)));
 
 const authTitle = document.getElementById('authTitle');
 const authSub = document.getElementById('authSub');
@@ -33,12 +57,35 @@ function setAuthMode(signup){
   nicknameField.style.display = signup ? 'flex' : 'none';
   termsField.style.display = signup ? 'flex' : 'none';
   authTerms.checked = false;
+  forgotPasswordRow.style.display = signup ? 'none' : 'block';
   authSubmitBtn.textContent = signup ? '회원가입' : '로그인';
   authSwitchText.textContent = signup ? '이미 계정이 있으신가요?' : '계정이 없으신가요?';
   authSwitchLink.textContent = signup ? '로그인' : '회원가입';
   authError.style.display = 'none';
 }
 authSwitchLink.addEventListener('click', () => setAuthMode(!isSignupMode));
+
+const forgotPasswordRow = document.getElementById('forgotPasswordRow');
+const forgotPasswordLink = document.getElementById('forgotPasswordLink');
+
+forgotPasswordLink.addEventListener('click', async () => {
+  const email = authEmail.value.trim() || window.prompt('가입하신 이메일을 입력해 주세요');
+  if (!email) return;
+  authError.style.display = 'none';
+  try {
+    const { error } = await sb.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password.html`
+    });
+    if (error) throw error;
+    authError.style.color = 'var(--good)';
+    authError.textContent = '비밀번호 재설정 메일을 보냈어요. 메일함(스팸함도)을 확인해 주세요.';
+    authError.style.display = 'block';
+  } catch (err) {
+    authError.style.color = 'var(--signal)';
+    authError.textContent = err.message || '메일 전송에 실패했어요.';
+    authError.style.display = 'block';
+  }
+});
 
 authSubmitBtn.addEventListener('click', async () => {
   const email = authEmail.value.trim();
@@ -91,16 +138,18 @@ sb.auth.onAuthStateChange(async (event, session) => {
     authSection.classList.add('hidden');
     appRoot.classList.remove('hidden');
     userbar.classList.remove('hidden');
+    tabNav.classList.remove('hidden');
     const { data: profile } = await sb.from('profiles').select('nickname').eq('id', currentUser.id).single();
     userNickname.textContent = profile?.nickname || currentUser.email.split('@')[0];
     journalDate.value = todayStr();
     renderJournalQuick();
     renderJournal();
-    refreshTrend();
+    switchTab('measure');
   } else {
     authSection.classList.remove('hidden');
     appRoot.classList.add('hidden');
     userbar.classList.add('hidden');
+    tabNav.classList.add('hidden');
   }
 });
 
@@ -391,7 +440,6 @@ async function render(m){
         shoulder_tilt: m.shoulderTilt, hip_tilt: m.hipTilt,
         waist_cm: isNaN(waist) ? null : waist
       });
-      refreshTrend();
     } catch(e){ console.warn('measurement save failed', e); }
   }
 }
@@ -399,7 +447,7 @@ async function render(m){
 /* ---------- History (Supabase) ---------- */
 toggleHistoryBtn.addEventListener('click', async () => {
   const showing = !historyBox.classList.contains('hidden');
-  if (showing){ historyBox.classList.add('hidden'); toggleHistoryBtn.textContent = '측정 기록 보기'; return; }
+  if (showing){ historyBox.classList.add('hidden'); toggleHistoryBtn.textContent = '측정 기록 전체 보기'; return; }
   toggleHistoryBtn.textContent = '측정 기록 닫기';
   historyBox.classList.remove('hidden');
   const { data, error } = await sb.from('measurements').select('*').order('measured_at', { ascending:false }).limit(20);
@@ -515,6 +563,9 @@ async function sendCoachMessage(text){
     console.warn('coach chat failed', err);
     chatMessages = chatMessages.filter(m => !m.pending);
     renderChatMessages();
+    coachError.textContent = (err.message && err.message !== 'request failed')
+      ? err.message
+      : '코치 응답을 받아오지 못했어요. 잠시 후 다시 시도해 주세요.';
     coachError.style.display = 'block';
   }
 }
@@ -584,3 +635,74 @@ async function refreshTrend(){
     }
   });
 }
+
+/* ---------- 마이페이지: 프로필 + 요약 통계 + 계정 관리 ---------- */
+async function renderMyPageStats(){
+  if (!currentUser) return;
+
+  mypageEmail.value = currentUser.email;
+  const { data: profile } = await sb.from('profiles').select('nickname').eq('id', currentUser.id).single();
+  mypageNickname.value = profile?.nickname || '';
+
+  const { count: measureCount } = await sb.from('measurements')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', currentUser.id);
+
+  const { data: journalRows } = await sb.from('journal_entries')
+    .select('entry_date')
+    .eq('user_id', currentUser.id);
+
+  const totalDays = journalRows ? journalRows.length : 0;
+  let streak = 0;
+  if (journalRows){
+    const dateSet = new Set(journalRows.map(r => r.entry_date));
+    const cursor = new Date();
+    for (;;){
+      const key = `${cursor.getFullYear()}-${String(cursor.getMonth()+1).padStart(2,'0')}-${String(cursor.getDate()).padStart(2,'0')}`;
+      if (dateSet.has(key)){ streak++; cursor.setDate(cursor.getDate() - 1); } else break;
+    }
+  }
+
+  statMeasureCount.textContent = measureCount ?? 0;
+  statStreak.textContent = streak;
+  statTotalDays.textContent = totalDays;
+
+  const todayKey = todayStr();
+  const { data: usageRow } = await sb.from('coach_usage')
+    .select('count')
+    .eq('user_id', currentUser.id)
+    .eq('usage_date', todayKey)
+    .maybeSingle();
+  statCoachUsage.textContent = `${usageRow?.count || 0} / ${COACH_DAILY_LIMIT}`;
+
+  refreshTrend();
+}
+
+mypageNicknameSave.addEventListener('click', async () => {
+  if (!currentUser) return;
+  const val = mypageNickname.value.trim();
+  if (!val) return;
+  await sb.from('profiles').update({ nickname: val }).eq('id', currentUser.id);
+  userNickname.textContent = val;
+  mypageProfileMsg.style.display = 'block';
+  setTimeout(() => { mypageProfileMsg.style.display = 'none'; }, 2000);
+});
+
+deleteAccountBtn.addEventListener('click', async () => {
+  const sure = confirm('정말 계정을 삭제하시겠어요?\n측정 기록과 운동 기록이 전부 영구히 삭제되고 되돌릴 수 없어요.');
+  if (!sure) return;
+  deleteAccountBtn.disabled = true;
+  try{
+    const res = await fetch('/api/account', {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${accessToken}` }
+    });
+    if (!res.ok) throw new Error('delete failed');
+    await sb.auth.signOut();
+    location.reload();
+  } catch(err){
+    console.warn('account delete failed', err);
+    alert('계정 삭제에 실패했어요. 잠시 후 다시 시도해 주세요.');
+    deleteAccountBtn.disabled = false;
+  }
+});
