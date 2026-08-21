@@ -67,6 +67,7 @@
       <button class="tab-btn active" data-tab="measure">측정</button>
       <button class="tab-btn" data-tab="journal">기록장</button>
       <button class="tab-btn" data-tab="mypage">마이페이지</button>
+      <button class="tab-btn" data-tab="library">운동사전</button>
     </nav>
 
     <!-- ===== 탭: 측정 ===== -->
@@ -89,7 +90,11 @@
         </div>
         <div class="fallback-notice hidden" id="fallbackNotice">
           <span>ⓘ</span>
-          <span><strong>자동 인식을 불러오지 못해 수동 모드로 전환했어요.</strong> 사진 위 6개 지점을 직접 탭해서 측정해 주세요.</span>
+          <span><strong>자동 인식을 불러오지 못해 수동 모드로 전환했어요.</strong> 사진에 맞는 모드를 고르고 지점을 탭해서 측정해 주세요.</span>
+        </div>
+        <div class="btn-row hidden" id="bodyModeSelect">
+          <button class="btn ghost" id="fullModeBtn">전신 사진이에요 (6지점)</button>
+          <button class="btn ghost" id="upperModeBtn">상반신 사진이에요 (4지점, 다리 정보 제외)</button>
         </div>
         <div class="steps-dots hidden" id="stepsDots"></div>
         <div class="status-line" id="statusLine"></div>
@@ -196,6 +201,33 @@
         <div id="historyBox" class="hidden"></div>
       </section>
 
+      <section id="goalSection">
+        <div class="sec-label"><span class="n">·</span> 목표</div>
+        <div class="journal-box">
+          <div class="auth-field">
+            <label for="goalText">목표</label>
+            <input type="text" id="goalText" placeholder="예: 어깨 넓히고 상하체 균형 맞추기" maxlength="60">
+          </div>
+          <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
+            <label class="mono" style="font-size:12px;color:var(--ink-dim);" for="goalDate">목표일 (선택)</label>
+            <input type="date" id="goalDate">
+          </div>
+          <button class="btn ghost" id="goalSaveBtn" style="padding:9px 16px;">목표 저장</button>
+          <div class="history-empty" id="goalMsg" style="display:none; color:var(--good); margin-top:8px;">저장됐어요.</div>
+          <div class="history-empty" id="goalStatus" style="margin-top:10px;"></div>
+        </div>
+      </section>
+
+      <section id="reportSection">
+        <div class="sec-label"><span class="n">·</span> AI 리포트</div>
+        <div class="journal-box">
+          <p style="color:var(--ink-dim); font-size:13px; margin:0 0 14px;">최근 30일간의 측정·운동 기록을 AI가 읽고 요약 리포트를 만들어줘요. (코치 사용량에 1회로 카운트돼요)</p>
+          <button class="btn" id="generateReportBtn">이번 달 리포트 생성</button>
+          <div class="coach-error" id="reportError" style="padding:0; margin-top:10px;">리포트를 만들지 못했어요. 잠시 후 다시 시도해 주세요.</div>
+          <div class="msg assistant" id="reportOutput" style="display:none; margin-top:16px; max-width:100%;"></div>
+        </div>
+      </section>
+
       <section id="accountSection">
         <div class="sec-label"><span class="n">·</span> 계정 관리</div>
         <div class="btn-row" style="margin-top:0;">
@@ -204,6 +236,15 @@
         </div>
       </section>
 
+    </div>
+
+    <!-- ===== 탭: 운동사전 ===== -->
+    <div class="tab-panel hidden" id="tab-library">
+      <section id="librarySection">
+        <div class="sec-label"><span class="n">·</span> 운동사전</div>
+        <input type="text" id="libSearch" placeholder="머신 이름이나 부위로 검색 (예: 어깨, 랫풀다운)" style="width:100%; margin-bottom:16px;">
+        <div id="libraryList"></div>
+      </section>
     </div>
 
   </div>

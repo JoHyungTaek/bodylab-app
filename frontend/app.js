@@ -17,7 +17,8 @@ const tabButtons = document.querySelectorAll('.tab-btn');
 const tabPanels = {
   measure: document.getElementById('tab-measure'),
   journal: document.getElementById('tab-journal'),
-  mypage: document.getElementById('tab-mypage')
+  mypage: document.getElementById('tab-mypage'),
+  library: document.getElementById('tab-library')
 };
 const mypageEmail = document.getElementById('mypageEmail');
 const mypageNickname = document.getElementById('mypageNickname');
@@ -144,6 +145,8 @@ sb.auth.onAuthStateChange(async (event, session) => {
     journalDate.value = todayStr();
     renderJournalQuick();
     renderJournal();
+    loadGoal();
+    renderLibrary('');
     switchTab('measure');
   } else {
     authSection.classList.remove('hidden');
@@ -197,11 +200,21 @@ let manualPoints = [];
 let currentSummary = null;
 let chatMessages = [];
 
-const MANUAL_STEPS = [
+const MANUAL_STEPS_FULL = [
   { label:'어깨 지점 ①을 탭하세요' }, { label:'어깨 지점 ②를 탭하세요' },
   { label:'골반 지점 ①을 탭하세요' }, { label:'골반 지점 ②를 탭하세요' },
   { label:'발목 지점 ①을 탭하세요' }, { label:'발목 지점 ②를 탭하세요' },
 ];
+const MANUAL_STEPS_UPPER = [
+  { label:'어깨 지점 ①을 탭하세요' }, { label:'어깨 지점 ②를 탭하세요' },
+  { label:'골반 지점 ①을 탭하세요' }, { label:'골반 지점 ②를 탭하세요' },
+];
+let bodyMode = 'full'; // 'full' | 'upper' — 발목이 사진에 없으면 'upper'
+function currentManualSteps(){ return bodyMode === 'upper' ? MANUAL_STEPS_UPPER : MANUAL_STEPS_FULL; }
+
+const bodyModeSelect = document.getElementById('bodyModeSelect');
+const fullModeBtn = document.getElementById('fullModeBtn');
+const upperModeBtn = document.getElementById('upperModeBtn');
 
 /* ---------- Upload ---------- */
 dropzone.addEventListener('click', () => fileInput.click());
@@ -225,7 +238,8 @@ function startStage(){
   confirmBtn.classList.add('hidden');
   manualBtn.classList.add('hidden');
   stepsDots.classList.add('hidden');
-  manualPoints = []; autoPoints = null;
+  bodyModeSelect.classList.add('hidden');
+  manualPoints = []; autoPoints = null; bodyMode = 'full';
 
   const maxW = 700;
   const scale = Math.min(1, maxW / img.naturalWidth);
@@ -271,14 +285,26 @@ async function runAutoDetect(){
     if (!lm) throw new Error('no-pose');
 
     const P = i => ({ x: lm[i].x * canvas.width, y: lm[i].y * canvas.height, v: lm[i].visibility ?? 1 });
-    const pts = { shoulderL:P(11), shoulderR:P(12), hipL:P(23), hipR:P(24), ankleL:P(27), ankleR:P(28) };
-    const minVis = Math.min(pts.shoulderL.v, pts.shoulderR.v, pts.hipL.v, pts.hipR.v, pts.ankleL.v, pts.ankleR.v);
-    if (minVis < 0.35) throw new Error('low-confidence');
+    const shoulderL = P(11), shoulderR = P(12), hipL = P(23), hipR = P(24), ankleL = P(27), ankleR = P(28);
 
-    autoPoints = pts; mode = 'auto';
+    // 어깨·골반은 필수. 발목은 상반신 사진이면 안 보일 수 있어서 별도로 판단.
+    const upperVis = Math.min(shoulderL.v, shoulderR.v, hipL.v, hipR.v);
+    if (upperVis < 0.35) throw new Error('low-confidence');
+
+    const legVis = Math.min(ankleL.v, ankleR.v);
+    const hasLegs = legVis >= 0.35;
+
+    autoPoints = { shoulderL, shoulderR, hipL, hipR, ankleL: hasLegs ? ankleL : null, ankleR: hasLegs ? ankleR : null };
+    bodyMode = hasLegs ? 'full' : 'upper';
+    mode = 'auto';
     drawAutoOverlay(lm);
-    stageHint.textContent = '자동 인식 완료 — 아래 지점으로 측정할게요';
-    statusLine.textContent = '어깨·골반·발목이 잘 잡혔는지 확인해 주세요.';
+    if (hasLegs){
+      stageHint.textContent = '자동 인식 완료 — 아래 지점으로 측정할게요';
+      statusLine.textContent = '어깨·골반·발목이 잘 잡혔는지 확인해 주세요.';
+    } else {
+      stageHint.textContent = '자동 인식 완료 (상반신만 인식됨)';
+      statusLine.textContent = '발목이 사진에 안 보여서, 다리 관련 지표는 빼고 상체 기준으로만 측정할게요.';
+    }
     confirmBtn.classList.remove('hidden');
     manualBtn.classList.remove('hidden');
   } catch(err){
@@ -291,13 +317,13 @@ async function runAutoDetect(){
 function drawAutoOverlay(lm){
   drawBase();
   const edges = [[11,12],[11,23],[12,24],[23,24],[11,13],[13,15],[12,14],[14,16],[23,25],[25,27],[24,26],[26,28]];
-  ctx.strokeStyle = 'rgba(232,185,35,0.55)'; ctx.lineWidth = 2;
+  ctx.strokeStyle = 'rgba(255,107,53,0.55)'; ctx.lineWidth = 2;
   edges.forEach(([a,b]) => { ctx.beginPath(); ctx.moveTo(lm[a].x*canvas.width, lm[a].y*canvas.height); ctx.lineTo(lm[b].x*canvas.width, lm[b].y*canvas.height); ctx.stroke(); });
   const highlight = [11,12,23,24,27,28];
   lm.forEach((p,i) => {
     ctx.beginPath();
     ctx.arc(p.x*canvas.width, p.y*canvas.height, highlight.includes(i)?5:2.5, 0, Math.PI*2);
-    ctx.fillStyle = highlight.includes(i) ? '#E8B923' : 'rgba(240,237,230,0.5)';
+    ctx.fillStyle = highlight.includes(i) ? '#FF6B35' : 'rgba(245,243,238,0.5)';
     ctx.fill();
   });
 }
@@ -307,22 +333,36 @@ function startManualMode(){
   mode = 'manual'; manualPoints = [];
   drawBase();
   confirmBtn.classList.add('hidden'); manualBtn.classList.add('hidden');
-  stepsDots.classList.remove('hidden');
-  stepsDots.innerHTML = MANUAL_STEPS.map(() => '<span></span>').join('');
-  updateManualHint();
-  canvas.onclick = onManualClick;
+  stepsDots.classList.add('hidden');
+  statusLine.textContent = '';
+  stageHint.textContent = '사진에 발목까지 나와있나요?';
+  bodyModeSelect.classList.remove('hidden');
+  canvas.onclick = null;
 }
 manualBtn.addEventListener('click', () => { fallbackNotice.classList.add('hidden'); startManualMode(); });
 
+fullModeBtn.addEventListener('click', () => { bodyMode = 'full'; bodyModeSelect.classList.add('hidden'); beginManualTapping(); });
+upperModeBtn.addEventListener('click', () => { bodyMode = 'upper'; bodyModeSelect.classList.add('hidden'); beginManualTapping(); });
+
+function beginManualTapping(){
+  manualPoints = [];
+  const steps = currentManualSteps();
+  stepsDots.classList.remove('hidden');
+  stepsDots.innerHTML = steps.map(() => '<span></span>').join('');
+  updateManualHint();
+  canvas.onclick = onManualClick;
+}
+
 function updateManualHint(){
+  const steps = currentManualSteps();
   const i = manualPoints.length;
-  if (i >= MANUAL_STEPS.length){
-    stageHint.textContent = '지점 6개를 모두 찍었어요'; statusLine.textContent = '';
+  if (i >= steps.length){
+    stageHint.textContent = `지점 ${steps.length}개를 모두 찍었어요`; statusLine.textContent = '';
     canvas.onclick = null; confirmBtn.classList.remove('hidden');
     return;
   }
-  stageHint.textContent = MANUAL_STEPS[i].label;
-  statusLine.textContent = `${i+1} / ${MANUAL_STEPS.length}`;
+  stageHint.textContent = steps[i].label;
+  statusLine.textContent = `${i+1} / ${steps.length}`;
   [...stepsDots.children].forEach((d, idx) => { d.className = idx < i ? 'done' : (idx === i ? 'active' : ''); });
 }
 
@@ -331,16 +371,20 @@ function onManualClick(e){
   const x = (e.clientX - rect.left) * (canvas.width / rect.width);
   const y = (e.clientY - rect.top) * (canvas.height / rect.height);
   manualPoints.push({x,y});
-  ctx.beginPath(); ctx.arc(x,y,5,0,Math.PI*2); ctx.fillStyle = '#E8B923'; ctx.fill();
-  ctx.strokeStyle = '#14171A'; ctx.lineWidth = 1.5; ctx.stroke();
+  ctx.beginPath(); ctx.arc(x,y,5,0,Math.PI*2); ctx.fillStyle = '#FF6B35'; ctx.fill();
+  ctx.strokeStyle = '#12151A'; ctx.lineWidth = 1.5; ctx.stroke();
   updateManualHint();
 }
 
 /* ---------- Confirm & compute ---------- */
 confirmBtn.addEventListener('click', () => {
   let pts;
-  if (mode === 'auto'){ pts = autoPoints; }
-  else {
+  if (mode === 'auto'){
+    pts = autoPoints;
+  } else if (bodyMode === 'upper'){
+    const [shoulderA, shoulderB, hipA, hipB] = manualPoints;
+    pts = { shoulderL:shoulderA, shoulderR:shoulderB, hipL:hipA, hipR:hipB, ankleL:null, ankleR:null };
+  } else {
     const [shoulderA, shoulderB, hipA, hipB, ankleA, ankleB] = manualPoints;
     pts = { shoulderL:shoulderA, shoulderR:shoulderB, hipL:hipA, hipR:hipB, ankleL:ankleA, ankleR:ankleB };
   }
@@ -353,18 +397,22 @@ function mid(a,b){ return { x:(a.x+b.x)/2, y:(a.y+b.y)/2 }; }
 async function computeAndRender(pts){
   const shoulderWidth = dist(pts.shoulderL, pts.shoulderR);
   const hipWidth = dist(pts.hipL, pts.hipR);
-  const shoulderMid = mid(pts.shoulderL, pts.shoulderR);
-  const hipMid = mid(pts.hipL, pts.hipR);
-  const ankleMid = mid(pts.ankleL, pts.ankleR);
-  const torsoLength = dist(shoulderMid, hipMid);
-  const legLength = dist(hipMid, ankleMid);
-
   const shoulderHipRatio = shoulderWidth / hipWidth;
-  const legTorsoRatio = legLength / torsoLength;
   const shoulderTilt = Math.abs(pts.shoulderL.y - pts.shoulderR.y) / shoulderWidth;
   const hipTilt = Math.abs(pts.hipL.y - pts.hipR.y) / hipWidth;
-  const legL = dist(pts.hipL, pts.ankleL), legR = dist(pts.hipR, pts.ankleR);
-  const legAsymmetry = Math.abs(legL-legR) / ((legL+legR)/2);
+
+  let legTorsoRatio = null;
+  let legAsymmetry = null;
+  if (pts.ankleL && pts.ankleR){
+    const shoulderMid = mid(pts.shoulderL, pts.shoulderR);
+    const hipMid = mid(pts.hipL, pts.hipR);
+    const ankleMid = mid(pts.ankleL, pts.ankleR);
+    const torsoLength = dist(shoulderMid, hipMid);
+    const legLength = dist(hipMid, ankleMid);
+    legTorsoRatio = legLength / torsoLength;
+    const legL = dist(pts.hipL, pts.ankleL), legR = dist(pts.hipR, pts.ankleR);
+    legAsymmetry = Math.abs(legL-legR) / ((legL+legR)/2);
+  }
 
   const m = { shoulderHipRatio, legTorsoRatio, shoulderTilt, hipTilt, legAsymmetry };
   await render(m);
@@ -374,7 +422,7 @@ async function computeAndRender(pts){
   window.scrollTo({ top: resultSection.offsetTop - 20, behavior:'smooth' });
 }
 
-waistApply.addEventListener('click', () => { if (lastMetrics) render(lastMetrics); });
+waistApply.addEventListener('click', () => { if (lastMetrics) render(lastMetrics, { save:false }); });
 let lastMetrics = null;
 
 /* ---------- Classification & recommendations ---------- */
@@ -401,11 +449,11 @@ function buildRecommendations(ratio, waist, flags){
 }
 
 /* ---------- Render + save to Supabase ---------- */
-async function render(m){
+async function render(m, opts = {}){
   lastMetrics = m;
   readoutGrid.innerHTML = `
     <div class="readout-cell"><div class="rl">어깨 : 골반 비율</div><div class="rv">${m.shoulderHipRatio.toFixed(2)}</div></div>
-    <div class="readout-cell"><div class="rl">다리 : 상체 비율</div><div class="rv">${m.legTorsoRatio.toFixed(2)}</div></div>
+    <div class="readout-cell"><div class="rl">다리 : 상체 비율</div><div class="rv">${m.legTorsoRatio !== null ? m.legTorsoRatio.toFixed(2) : '측정 안 함'}</div></div>
     <div class="readout-cell"><div class="rl">어깨 좌우 기울기</div><div class="rv">${(m.shoulderTilt*100).toFixed(1)}%</div></div>
     <div class="readout-cell"><div class="rl">골반 좌우 기울기</div><div class="rv">${(m.hipTilt*100).toFixed(1)}%</div></div>
   `;
@@ -416,7 +464,7 @@ async function render(m){
   const flags = [];
   if (m.shoulderTilt > 0.035) flags.push('어깨 좌우 비대칭 의심');
   if (m.hipTilt > 0.035) flags.push('골반 좌우 비대칭 의심');
-  if (m.legAsymmetry > 0.05) flags.push('다리 길이 좌우 차이 의심');
+  if (m.legAsymmetry !== null && m.legAsymmetry > 0.05) flags.push('다리 길이 좌우 차이 의심');
   flagsRow.innerHTML = flags.map(f => `<span class="chip" style="color:var(--signal);border-color:var(--signal);">⚑ ${f}</span>`).join('');
 
   const recs = buildRecommendations(m.shoulderHipRatio, waist, flags);
@@ -432,7 +480,7 @@ async function render(m){
   renderJournalQuick();
   resetCoachChat();
 
-  if (currentUser){
+  if (currentUser && opts.save !== false){
     try{
       await sb.from('measurements').insert({
         user_id: currentUser.id, body_type: type,
@@ -529,8 +577,12 @@ function renderChatMessages(){
 }
 function buildCoachSystemPrompt(){
   const s = currentSummary;
+  const goalLine = currentGoal?.goal_text
+    ? `사용자의 목표: ${currentGoal.goal_text}${currentGoal.target_date ? ` (목표일: ${currentGoal.target_date})` : ''}`
+    : '설정된 목표 없음';
   return [
     '너는 친근한 한국어 헬스 코치야. 사용자는 방금 사진 기반 체형 측정을 마쳤어.',
+    goalLine,
     `체형 분류: ${s.type} — ${s.desc}`,
     `측정값: 어깨:골반 비율 ${s.shoulderHipRatio.toFixed(2)}, 어깨 기울기 ${(s.shoulderTilt*100).toFixed(1)}%, 골반 기울기 ${(s.hipTilt*100).toFixed(1)}%`,
     s.flags.length ? `주의 신호: ${s.flags.join(', ')}` : '특별한 좌우 비대칭 신호는 없음',
@@ -613,10 +665,10 @@ async function refreshTrend(){
       datasets: [{
         label: '어깨:골반 비율',
         data: values,
-        borderColor: '#E8B923',
-        backgroundColor: 'rgba(232,185,35,0.15)',
+        borderColor: '#FF6B35',
+        backgroundColor: 'rgba(255,107,53,0.15)',
         borderWidth: 2,
-        pointBackgroundColor: '#E8B923',
+        pointBackgroundColor: '#FF6B35',
         pointRadius: 4,
         tension: 0.25,
         fill: true
@@ -629,8 +681,8 @@ async function refreshTrend(){
         tooltip: { callbacks: { label: c => `비율 ${c.parsed.y.toFixed(2)}` } }
       },
       scales: {
-        x: { ticks: { color: '#9CA3A8' }, grid: { color: '#343B41' } },
-        y: { ticks: { color: '#9CA3A8' }, grid: { color: '#343B41' } }
+        x: { ticks: { color: '#9AA1AC' }, grid: { color: '#2E343E' } },
+        y: { ticks: { color: '#9AA1AC' }, grid: { color: '#2E343E' } }
       }
     }
   });
@@ -676,6 +728,7 @@ async function renderMyPageStats(){
   statCoachUsage.textContent = `${usageRow?.count || 0} / ${COACH_DAILY_LIMIT}`;
 
   refreshTrend();
+  loadGoal();
 }
 
 mypageNicknameSave.addEventListener('click', async () => {
@@ -704,5 +757,128 @@ deleteAccountBtn.addEventListener('click', async () => {
     console.warn('account delete failed', err);
     alert('계정 삭제에 실패했어요. 잠시 후 다시 시도해 주세요.');
     deleteAccountBtn.disabled = false;
+  }
+});
+
+/* ---------- 목표 설정 ---------- */
+const goalText = document.getElementById('goalText');
+const goalDate = document.getElementById('goalDate');
+const goalSaveBtn = document.getElementById('goalSaveBtn');
+const goalMsg = document.getElementById('goalMsg');
+const goalStatus = document.getElementById('goalStatus');
+
+let currentGoal = null;
+
+async function loadGoal(){
+  if (!currentUser) return;
+  const { data } = await sb.from('goals')
+    .select('goal_text, target_date')
+    .eq('user_id', currentUser.id)
+    .maybeSingle();
+
+  currentGoal = data || null;
+  goalText.value = data?.goal_text || '';
+  goalDate.value = data?.target_date || '';
+
+  if (data?.target_date){
+    const days = Math.ceil((new Date(data.target_date) - new Date()) / (1000 * 60 * 60 * 24));
+    goalStatus.textContent = days >= 0 ? `목표일까지 ${days}일 남았어요.` : `목표일이 ${Math.abs(days)}일 지났어요.`;
+  } else if (data?.goal_text){
+    goalStatus.textContent = '목표일은 설정하지 않았어요.';
+  } else {
+    goalStatus.textContent = '아직 목표가 없어요. 목표를 적어두면 AI 코치가 기억하고 대화에 반영해요.';
+  }
+}
+
+goalSaveBtn.addEventListener('click', async () => {
+  if (!currentUser) return;
+  const text = goalText.value.trim();
+  if (!text) return;
+  await sb.from('goals').upsert(
+    { user_id: currentUser.id, goal_text: text, target_date: goalDate.value || null },
+    { onConflict: 'user_id' }
+  );
+  goalMsg.style.display = 'block';
+  setTimeout(() => { goalMsg.style.display = 'none'; }, 2000);
+  loadGoal();
+});
+
+/* ---------- 운동사전 ---------- */
+const EXERCISE_LIBRARY = [
+  { name:'레그프레스', area:'하체', howTo:'등받이에 등을 붙이고 발판을 어깨너비로 밟은 뒤, 무릎이 발끝 방향과 일치하도록 밀어냅니다. 무릎을 완전히 펴지 말고 살짝 굽힌 상태에서 멈추세요.' },
+  { name:'스미스머신 스쿼트', area:'하체', howTo:'바를 어깨 위(승모근)에 걸치고 발을 어깨너비로 벌린 뒤, 무릎과 엉덩이를 동시에 굽혀 앉았다 일어납니다. 무릎이 발끝보다 안쪽으로 모이지 않게 주의하세요.' },
+  { name:'레그컬 머신', area:'하체', howTo:'엎드리거나 앉아서 패드를 발목 뒤쪽에 걸고 무릎을 굽혀 당깁니다. 반동 없이 천천히 당기고 천천히 풀어주세요.' },
+  { name:'레그익스텐션', area:'하체', howTo:'앉아서 패드를 발목 앞쪽에 걸고 무릎을 펴서 다리를 들어올립니다. 무릎 관절에 무리가 가지 않도록 중량을 과하게 두지 마세요.' },
+  { name:'힙쓰러스트 머신', area:'하체', howTo:'어깨를 벤치에 기대고 골반을 위로 밀어올려 엉덩이를 조입니다. 정점에서 1~2초 버티면 둔근 자극이 커져요.' },
+  { name:'런지', area:'하체', howTo:'한 발을 앞으로 크게 내딛고 양 무릎을 90도로 굽혔다가 원위치합니다. 앞 무릎이 발끝을 넘지 않게 주의하세요.' },
+  { name:'랫풀다운', area:'등·어깨', howTo:'바를 어깨너비보다 약간 넓게 잡고, 가슴 쪽으로 당깁니다. 어깨를 으쓱하지 말고 등 근육으로 당기는 느낌을 유지하세요.' },
+  { name:'사이드 레터럴레이즈 머신', area:'등·어깨', howTo:'팔꿈치를 살짝 굽힌 채 옆으로 들어올려 어깨 옆쪽(측면 삼각근)을 자극합니다. 반동을 쓰지 않는 게 중요해요.' },
+  { name:'숄더프레스 머신', area:'등·어깨', howTo:'손잡이를 어깨 높이에서 잡고 머리 위로 밀어올립니다. 허리가 과하게 젖혀지지 않도록 코어에 힘을 주세요.' },
+  { name:'시티드 로우 머신', area:'등·어깨', howTo:'손잡이를 잡고 팔꿈치를 몸 뒤로 당기며 견갑골을 모아줍니다. 상체를 앞뒤로 흔들지 말고 고정하세요.' },
+  { name:'케이블 크로스오버', area:'등·어깨', howTo:'양쪽 케이블을 잡고 팔을 앞으로 모아 가슴을 조입니다. 팔꿈치를 살짝 굽힌 채로 진행하세요.' },
+  { name:'체스트프레스 (저중량)', area:'상체 유지', howTo:'손잡이를 가슴 높이에서 잡고 앞으로 밀어냅니다. 어깨가 말리지 않게 가슴을 편 상태를 유지하세요.' },
+  { name:'케이블 우드촙', area:'코어', howTo:'케이블을 한쪽 위(또는 아래)에서 잡고 대각선으로 몸통을 회전하며 당깁니다. 허리가 아닌 코어 회전으로 움직이세요.' },
+  { name:'플랭크', area:'코어', howTo:'팔꿈치와 발끝으로 몸을 지탱하고, 엉덩이가 처지거나 너무 올라가지 않게 일직선을 유지합니다.' },
+  { name:'원암 덤벨로우', area:'자세 교정', howTo:'한 손과 무릎을 벤치에 대고, 반대손으로 덤벨을 골반 옆으로 당깁니다. 좌우를 번갈아 동일한 횟수로 진행하세요.' },
+  { name:'밴드 풀어파트', area:'자세 교정', howTo:'밴드를 어깨너비로 잡고 팔을 양옆으로 벌려 등 견갑골을 모읍니다. 라운드 숄더(굽은 어깨) 교정에 좋아요.' },
+  { name:'폼롤러 흉추 스트레칭', area:'자세 교정', howTo:'폼롤러를 등 중간(흉추)에 대고 누운 뒤, 팔을 머리 위로 뻗으며 상체를 살짝 젖혀 늘려줍니다.' },
+  { name:'힙 어브덕션 머신', area:'골반 밸런스', howTo:'앉아서 패드를 무릎 바깥쪽에 대고 다리를 벌립니다. 엉덩이 옆쪽(중둔근) 자극에 집중하세요.' },
+  { name:'힙 어덕션 머신', area:'골반 밸런스', howTo:'앉아서 패드를 무릎 안쪽에 대고 다리를 모읍니다. 허벅지 안쪽 근육을 쓰는 느낌으로 진행하세요.' },
+  { name:'한 발 브릿지', area:'골반 밸런스', howTo:'누운 상태에서 한쪽 다리를 들고, 반대쪽 다리로만 골반을 들어올립니다. 좌우 번갈아 동일 횟수로 하세요.' },
+];
+
+const libSearch = document.getElementById('libSearch');
+const libraryList = document.getElementById('libraryList');
+
+function renderLibrary(filter){
+  const q = (filter || '').trim().toLowerCase();
+  const items = EXERCISE_LIBRARY.filter(e =>
+    !q || e.name.toLowerCase().includes(q) || e.area.toLowerCase().includes(q)
+  );
+  if (!items.length){
+    libraryList.innerHTML = '<div class="history-empty">검색 결과가 없어요.</div>';
+    return;
+  }
+  libraryList.innerHTML = items.map(e => `
+    <div class="rec-card">
+      <div class="rec-area">${escapeHtml(e.name)} <span class="chip" style="margin-left:8px;">${escapeHtml(e.area)}</span></div>
+      <div class="rec-reason">${escapeHtml(e.howTo)}</div>
+    </div>
+  `).join('');
+}
+libSearch.addEventListener('input', () => renderLibrary(libSearch.value));
+
+/* ---------- AI 리포트 ---------- */
+const generateReportBtn = document.getElementById('generateReportBtn');
+const reportError = document.getElementById('reportError');
+const reportOutput = document.getElementById('reportOutput');
+
+generateReportBtn.addEventListener('click', async () => {
+  if (!accessToken) return;
+  reportError.style.display = 'none';
+  reportOutput.style.display = 'none';
+  generateReportBtn.disabled = true;
+  generateReportBtn.textContent = '리포트 생성 중…';
+
+  try{
+    const res = await fetch('/api/report', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${accessToken}` }
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'request failed');
+    const textOut = (data.content || []).map(b => b.type === 'text' ? b.text : '').join('\n').trim()
+      || '리포트를 만들지 못했어요.';
+    reportOutput.textContent = textOut;
+    reportOutput.style.display = 'block';
+  } catch(err){
+    console.warn('report generation failed', err);
+    reportError.textContent = (err.message && err.message !== 'request failed')
+      ? err.message
+      : '리포트를 만들지 못했어요. 잠시 후 다시 시도해 주세요.';
+    reportError.style.display = 'block';
+  } finally {
+    generateReportBtn.disabled = false;
+    generateReportBtn.textContent = '이번 달 리포트 생성';
   }
 });

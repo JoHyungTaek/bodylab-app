@@ -42,6 +42,54 @@ async function requireUser(req, res, next) {
   next();
 }
 
+// 하루 코치 사용량 확인 (코치 대화 + AI 리포트 생성 공통으로 사용)
+async function getUsageToday(userId) {
+  const today = new Date().toISOString().slice(0, 10);
+  let currentCount = 0;
+  try {
+    const { data: usageRow } = await supabaseAdmin
+      .from('coach_usage')
+      .select('count')
+      .eq('user_id', userId)
+      .eq('usage_date', today)
+      .maybeSingle();
+    currentCount = usageRow?.count || 0;
+  } catch (e) {
+    console.warn('usage check failed:', e);
+  }
+  return { today, currentCount };
+}
+
+async function incrementUsage(userId, today, currentCount) {
+  try {
+    await supabaseAdmin.from('coach_usage').upsert(
+      { user_id: userId, usage_date: today, count: currentCount + 1 },
+      { onConflict: 'user_id,usage_date' }
+    );
+  } catch (e) {
+    console.warn('usage increment failed:', e);
+  }
+}
+
+async function callAnthropic(system, messages) {
+  const anthropicRes = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': ANTHROPIC_API_KEY,
+      'anthropic-version': '2023-06-01'
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 1200,
+      system,
+      messages
+    })
+  });
+  const data = await anthropicRes.json();
+  return { ok: anthropicRes.ok, status: anthropicRes.status, data };
+}
+
 app.post('/api/coach', requireUser, async (req, res) => {
   const { system, messages } = req.body || {};
   if (!Array.isArray(messages) || messages.length === 0) {
@@ -51,20 +99,7 @@ app.post('/api/coach', requireUser, async (req, res) => {
     return res.status(500).json({ error: '서버에 ANTHROPIC_API_KEY가 설정되지 않았어요.' });
   }
 
-  // 하루 사용량 제한 확인
-  const today = new Date().toISOString().slice(0, 10);
-  let currentCount = 0;
-  try {
-    const { data: usageRow } = await supabaseAdmin
-      .from('coach_usage')
-      .select('count')
-      .eq('user_id', req.user.id)
-      .eq('usage_date', today)
-      .maybeSingle();
-    currentCount = usageRow?.count || 0;
-  } catch (e) {
-    console.warn('usage check failed:', e);
-  }
+  const { today, currentCount } = await getUsageToday(req.user.id);
   if (currentCount >= DAILY_COACH_LIMIT) {
     return res.status(429).json({ error: `오늘 AI 코치에게 물어볼 수 있는 횟수(${DAILY_COACH_LIMIT}회)를 다 쓰셨어요. 내일 다시 이용해 주세요.` });
   }
@@ -89,41 +124,86 @@ app.post('/api/coach', requireUser, async (req, res) => {
   const fullSystem = (system || '') + journalNote;
 
   try {
-    const anthropicRes = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': ANTHROPIC_API_KEY,
-        'anthropic-version': '2023-06-01'
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 1000,
-        system: fullSystem,
-        messages
-      })
-    });
-
-    const data = await anthropicRes.json();
-    if (!anthropicRes.ok) {
+    const { ok, status, data } = await callAnthropic(fullSystem, messages);
+    if (!ok) {
       console.error('Anthropic API error:', data);
-      return res.status(anthropicRes.status).json({ error: '코치 응답을 받아오지 못했어요.', detail: data });
+      return res.status(status).json({ error: '코치 응답을 받아오지 못했어요.', detail: data });
     }
-
-    // 성공한 요청만 사용량에 카운트
-    try {
-      await supabaseAdmin.from('coach_usage').upsert(
-        { user_id: req.user.id, usage_date: today, count: currentCount + 1 },
-        { onConflict: 'user_id,usage_date' }
-      );
-    } catch (e) {
-      console.warn('usage increment failed:', e);
-    }
-
+    await incrementUsage(req.user.id, today, currentCount);
     res.json(data);
   } catch (err) {
     console.error('coach proxy failed:', err);
     res.status(500).json({ error: '코치 요청 중 오류가 발생했어요.' });
+  }
+});
+
+app.post('/api/report', requireUser, async (req, res) => {
+  if (!ANTHROPIC_API_KEY) {
+    return res.status(500).json({ error: '서버에 ANTHROPIC_API_KEY가 설정되지 않았어요.' });
+  }
+
+  const { today, currentCount } = await getUsageToday(req.user.id);
+  if (currentCount >= DAILY_COACH_LIMIT) {
+    return res.status(429).json({ error: `오늘 AI 기능 사용 횟수(${DAILY_COACH_LIMIT}회)를 다 쓰셨어요. 내일 다시 이용해 주세요.` });
+  }
+
+  try {
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    const thirtyDaysAgoDate = thirtyDaysAgo.slice(0, 10);
+
+    const { data: measurements } = await supabaseAdmin
+      .from('measurements')
+      .select('measured_at, body_type, shoulder_hip_ratio, shoulder_tilt, hip_tilt')
+      .eq('user_id', req.user.id)
+      .gte('measured_at', thirtyDaysAgo)
+      .order('measured_at', { ascending: true });
+
+    const { data: journal } = await supabaseAdmin
+      .from('journal_entries')
+      .select('entry_date, note')
+      .eq('user_id', req.user.id)
+      .gte('entry_date', thirtyDaysAgoDate)
+      .order('entry_date', { ascending: true });
+
+    const { data: goal } = await supabaseAdmin
+      .from('goals')
+      .select('goal_text, target_date')
+      .eq('user_id', req.user.id)
+      .maybeSingle();
+
+    if ((!measurements || !measurements.length) && (!journal || !journal.length)) {
+      return res.status(400).json({ error: '최근 30일간 측정이나 운동 기록이 없어서 리포트를 만들 수 없어요.' });
+    }
+
+    const measurementSummary = measurements && measurements.length
+      ? measurements.map(m => `- ${m.measured_at.slice(0,10)}: ${m.body_type}, 어깨:골반 ${Number(m.shoulder_hip_ratio).toFixed(2)}`).join('\n')
+      : '측정 기록 없음';
+    const journalSummary = journal && journal.length
+      ? journal.map(j => `- ${j.entry_date}: ${j.note}`).join('\n')
+      : '운동 기록 없음';
+    const goalLine = goal?.goal_text ? `목표: ${goal.goal_text}${goal.target_date ? ` (목표일: ${goal.target_date})` : ''}` : '설정된 목표 없음';
+
+    const system = [
+      '너는 친근한 한국어 헬스 코치야. 사용자의 최근 30일 데이터를 보고 짧은 리포트를 써줘.',
+      goalLine,
+      `최근 30일 측정 기록:
+${measurementSummary}`,
+      `최근 30일 운동 기록:
+${journalSummary}`,
+      '리포트는 다음 순서로 써줘: 1) 이번 기간 요약(2~3문장) 2) 잘한 점 3) 아쉬운 점 또는 놓친 부분 4) 다음 달 제안 1~2가지.',
+      '체중감량/칼로리/식단 수치는 다루지 말고 운동·자세·꾸준함 중심으로만 써줘. 너무 길지 않게, 300자 내외로 요약해줘.'
+    ].join('\n\n');
+
+    const { ok, status, data } = await callAnthropic(system, [{ role: 'user', content: '리포트를 만들어줘.' }]);
+    if (!ok) {
+      console.error('Anthropic report error:', data);
+      return res.status(status).json({ error: '리포트를 만들지 못했어요.', detail: data });
+    }
+    await incrementUsage(req.user.id, today, currentCount);
+    res.json(data);
+  } catch (err) {
+    console.error('report generation failed:', err);
+    res.status(500).json({ error: '리포트 생성 중 오류가 발생했어요.' });
   }
 });
 
