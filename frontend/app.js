@@ -34,6 +34,7 @@ const COACH_DAILY_LIMIT = 20;
 
 function switchTab(name){
   if (typeof liveRunning !== 'undefined' && liveRunning && name !== 'live') stopLiveTrainer();
+  if (typeof timelapseTimer !== 'undefined' && timelapseTimer && name !== 'mypage') { clearInterval(timelapseTimer); timelapseTimer = null; }
   Object.entries(tabPanels).forEach(([key, el]) => el.classList.toggle('hidden', key !== name));
   tabButtons.forEach(b => b.classList.toggle('active', b.dataset.tab === name));
   if (name === 'mypage') renderMyPageStats();
@@ -171,6 +172,7 @@ const statusLine = document.getElementById('statusLine');
 const confirmBtn = document.getElementById('confirmBtn');
 const manualBtn = document.getElementById('manualBtn');
 const resetBtn = document.getElementById('resetBtn');
+const savePhotoConsent = document.getElementById('savePhotoConsent');
 const stepsDots = document.getElementById('stepsDots');
 const fallbackNotice = document.getElementById('fallbackNotice');
 const resultSection = document.getElementById('resultSection');
@@ -396,6 +398,19 @@ confirmBtn.addEventListener('click', () => {
 function dist(a,b){ return Math.hypot(a.x-b.x, a.y-b.y); }
 function mid(a,b){ return { x:(a.x+b.x)/2, y:(a.y+b.y)/2 }; }
 
+function normalizeLandmarks(pts){
+  // 원본 사진 크기/거리에 상관없이 비교 가능하도록: 골반 중심을 원점, 몸통 길이를 1단위로 정규화
+  const hipMid = mid(pts.hipL, pts.hipR);
+  const shoulderMid = mid(pts.shoulderL, pts.shoulderR);
+  const torsoLen = dist(shoulderMid, hipMid) || 1;
+  const norm = (p) => p ? { x: (p.x - hipMid.x) / torsoLen, y: (p.y - hipMid.y) / torsoLen } : null;
+  return {
+    shoulderL: norm(pts.shoulderL), shoulderR: norm(pts.shoulderR),
+    hipL: norm(pts.hipL), hipR: norm(pts.hipR),
+    ankleL: norm(pts.ankleL), ankleR: norm(pts.ankleR)
+  };
+}
+
 async function computeAndRender(pts){
   const shoulderWidth = dist(pts.shoulderL, pts.shoulderR);
   const hipWidth = dist(pts.hipL, pts.hipR);
@@ -416,7 +431,12 @@ async function computeAndRender(pts){
     legAsymmetry = Math.abs(legL-legR) / ((legL+legR)/2);
   }
 
-  const m = { shoulderHipRatio, legTorsoRatio, shoulderTilt, hipTilt, legAsymmetry };
+  const landmarks = normalizeLandmarks(pts);
+  let photoPath = null;
+  if (savePhotoConsent && savePhotoConsent.checked && currentUser){
+    photoPath = await uploadProgressPhoto();
+  }
+  const m = { shoulderHipRatio, legTorsoRatio, shoulderTilt, hipTilt, legAsymmetry, landmarks, photoPath };
   await render(m);
 
   stageSection.classList.add('hidden');
@@ -488,7 +508,9 @@ async function render(m, opts = {}){
         user_id: currentUser.id, body_type: type,
         shoulder_hip_ratio: m.shoulderHipRatio, leg_torso_ratio: m.legTorsoRatio,
         shoulder_tilt: m.shoulderTilt, hip_tilt: m.hipTilt,
-        waist_cm: isNaN(waist) ? null : waist
+        waist_cm: isNaN(waist) ? null : waist,
+        landmarks: m.landmarks || null,
+        photo_path: m.photoPath || null
       });
     } catch(e){ console.warn('measurement save failed', e); }
   }
@@ -731,6 +753,7 @@ async function renderMyPageStats(){
 
   refreshTrend();
   loadGoal();
+  loadCompareOptions();
 }
 
 mypageNicknameSave.addEventListener('click', async () => {
@@ -938,6 +961,7 @@ const liveRepCountEl = document.getElementById('liveRepCount');
 const liveStatusEl = document.getElementById('liveStatus');
 const liveNotice = document.getElementById('liveNotice');
 const liveNoticeText = document.getElementById('liveNoticeText');
+const liveVoiceBtn = document.getElementById('liveVoiceBtn');
 
 let liveLandmarker = null;
 let liveStream = null;
@@ -945,6 +969,8 @@ let liveRunning = false;
 let liveRepCount = 0;
 let squatState = 'up';
 let lastVideoTime = -1;
+let voiceEnabled = true;
+let valgusWarnedThisRep = false;
 
 const SQUAT_DOWN_ANGLE = 110; // 이 각도보다 작아지면 "앉음"으로 판단
 const SQUAT_UP_ANGLE = 160;   // 이 각도보다 커지면 "일어섬"으로 판단 (반복 카운트)
@@ -1010,6 +1036,7 @@ async function startLiveTrainer(){
 
   liveRepCount = 0;
   squatState = 'up';
+  valgusWarnedThisRep = false;
   liveRepCountEl.textContent = '0';
   liveStatusEl.textContent = '준비됐어요 — 천천히 앉아보세요';
 
@@ -1070,8 +1097,14 @@ function processSquatFrame(lm){
   const angleR = angleAtPoint(hipR, kneeR, ankleR);
   const avgAngle = (angleL + angleR) / 2;
 
+  // 무릎이 발보다 안쪽으로 모이는지 체크 (무릎 사이 거리 vs 발목 사이 거리)
+  const kneeDist = Math.hypot(kneeL.x - kneeR.x, kneeL.y - kneeR.y);
+  const ankleDist = Math.hypot(ankleL.x - ankleR.x, ankleL.y - ankleR.y);
+  const valgusRatio = ankleDist > 0 ? kneeDist / ankleDist : 1;
+
   if (squatState === 'up' && avgAngle < SQUAT_DOWN_ANGLE){
     squatState = 'down';
+    valgusWarnedThisRep = false;
     liveStatusEl.textContent = '내려갔어요 👇 이제 천천히 일어나세요';
   } else if (squatState === 'down' && avgAngle > SQUAT_UP_ANGLE){
     squatState = 'up';
@@ -1079,9 +1112,23 @@ function processSquatFrame(lm){
     liveRepCountEl.textContent = String(liveRepCount);
     liveStatusEl.textContent = `${liveRepCount}회 완료! 👍`;
     liveSaveBtn.classList.remove('hidden');
+    speak(`${liveRepCount}개`);
+  } else if (squatState === 'down' && valgusRatio < 0.7 && !valgusWarnedThisRep){
+    valgusWarnedThisRep = true;
+    liveStatusEl.textContent = '⚠️ 무릎이 안쪽으로 모이고 있어요';
+    speak('무릎을 바깥으로 밀어주세요');
   } else if (squatState === 'up'){
     liveStatusEl.textContent = '준비됐어요 — 천천히 앉아보세요';
   }
+}
+
+function speak(text){
+  if (!voiceEnabled || !window.speechSynthesis) return;
+  window.speechSynthesis.cancel();
+  const utter = new SpeechSynthesisUtterance(text);
+  utter.lang = 'ko-KR';
+  utter.rate = 1.05;
+  window.speechSynthesis.speak(utter);
 }
 
 function stopLiveTrainer(){
@@ -1090,6 +1137,7 @@ function stopLiveTrainer(){
     liveStream.getTracks().forEach(t => t.stop());
     liveStream = null;
   }
+  if (window.speechSynthesis) window.speechSynthesis.cancel();
   liveCtx.clearRect(0, 0, liveCanvas.width, liveCanvas.height);
   liveStartBtn.classList.remove('hidden');
   liveStopBtn.classList.add('hidden');
@@ -1097,6 +1145,12 @@ function stopLiveTrainer(){
 
 liveStartBtn.addEventListener('click', startLiveTrainer);
 liveStopBtn.addEventListener('click', stopLiveTrainer);
+
+liveVoiceBtn.addEventListener('click', () => {
+  voiceEnabled = !voiceEnabled;
+  liveVoiceBtn.textContent = voiceEnabled ? '🔊 음성 켜짐' : '🔇 음성 꺼짐';
+  if (!voiceEnabled && window.speechSynthesis) window.speechSynthesis.cancel();
+});
 
 liveSaveBtn.addEventListener('click', async () => {
   if (!currentUser || liveRepCount === 0) return;
@@ -1119,5 +1173,177 @@ liveSaveBtn.addEventListener('click', async () => {
   } catch(err){
     console.warn('live save failed', err);
     liveStatusEl.textContent = '저장에 실패했어요. 다시 시도해 주세요.';
+  }
+});
+
+/* ---------- 비포/애프터 스켈레톤 비교 (9일차) ---------- */
+const compareSelectA = document.getElementById('compareSelectA');
+const compareSelectB = document.getElementById('compareSelectB');
+const compareBtn = document.getElementById('compareBtn');
+const compareNote = document.getElementById('compareNote');
+const compareCanvas = document.getElementById('compareCanvas');
+const compareCtx = compareCanvas.getContext('2d');
+
+async function loadCompareOptions(){
+  if (!currentUser) return;
+  const { data } = await sb.from('measurements')
+    .select('id, measured_at, body_type')
+    .eq('user_id', currentUser.id)
+    .order('measured_at', { ascending: false })
+    .limit(30);
+
+  const options = (data || []).map(r =>
+    `<option value="${r.id}">${new Date(r.measured_at).toLocaleDateString('ko-KR')} · ${escapeHtml(r.body_type)}</option>`
+  ).join('');
+  compareSelectA.innerHTML = '<option value="">이전 측정 선택</option>' + options;
+  compareSelectB.innerHTML = '<option value="">이후 측정 선택</option>' + options;
+}
+
+compareBtn.addEventListener('click', async () => {
+  const idA = compareSelectA.value, idB = compareSelectB.value;
+  compareNote.style.display = 'none';
+  if (!idA || !idB){
+    compareNote.textContent = '두 측정을 모두 선택해 주세요.';
+    compareNote.style.display = 'block';
+    return;
+  }
+  const { data } = await sb.from('measurements').select('id, landmarks').in('id', [idA, idB]);
+  const a = data?.find(r => String(r.id) === String(idA));
+  const b = data?.find(r => String(r.id) === String(idB));
+  if (!a?.landmarks || !b?.landmarks){
+    compareNote.textContent = '이 측정에는 비교용 좌표가 저장돼 있지 않아요 (9일차 기능 적용 이전 기록일 수 있어요).';
+    compareNote.style.display = 'block';
+    compareCtx.clearRect(0, 0, compareCanvas.width, compareCanvas.height);
+    return;
+  }
+  drawCompareSkeletons(a.landmarks, b.landmarks);
+});
+
+function drawCompareSkeletons(oldLm, newLm){
+  const w = compareCanvas.width, h = compareCanvas.height;
+  const cx = w / 2, cy = h / 2, scale = 90;
+  compareCtx.clearRect(0, 0, w, h);
+
+  function toXY(p){ return p ? { x: cx + p.x * scale, y: cy + p.y * scale } : null; }
+
+  function drawOne(lm, color){
+    const pts = {
+      shoulderL: toXY(lm.shoulderL), shoulderR: toXY(lm.shoulderR),
+      hipL: toXY(lm.hipL), hipR: toXY(lm.hipR),
+      ankleL: toXY(lm.ankleL), ankleR: toXY(lm.ankleR)
+    };
+    const edges = [['shoulderL','shoulderR'], ['shoulderL','hipL'], ['shoulderR','hipR'], ['hipL','hipR']];
+    if (pts.ankleL) edges.push(['hipL', 'ankleL']);
+    if (pts.ankleR) edges.push(['hipR', 'ankleR']);
+
+    compareCtx.strokeStyle = color;
+    compareCtx.lineWidth = 3;
+    edges.forEach(([a, b]) => {
+      if (!pts[a] || !pts[b]) return;
+      compareCtx.beginPath();
+      compareCtx.moveTo(pts[a].x, pts[a].y);
+      compareCtx.lineTo(pts[b].x, pts[b].y);
+      compareCtx.stroke();
+    });
+    Object.values(pts).forEach(p => {
+      if (!p) return;
+      compareCtx.beginPath();
+      compareCtx.arc(p.x, p.y, 4, 0, Math.PI * 2);
+      compareCtx.fillStyle = color;
+      compareCtx.fill();
+    });
+  }
+
+  drawOne(oldLm, 'rgba(154,161,172,0.85)');
+  drawOne(newLm, '#FF6B35');
+}
+
+/* ---------- 사진 저장(선택 동의) + 변화 슬라이드쇼 (10일차) ---------- */
+async function uploadProgressPhoto(){
+  try{
+    const uploadCanvas = document.createElement('canvas');
+    uploadCanvas.width = img.naturalWidth;
+    uploadCanvas.height = img.naturalHeight;
+    uploadCanvas.getContext('2d').drawImage(img, 0, 0);
+    const blob = await new Promise(resolve => uploadCanvas.toBlob(resolve, 'image/jpeg', 0.85));
+    if (!blob) return null;
+    const path = `${currentUser.id}/${Date.now()}.jpg`;
+    const { error } = await sb.storage.from('progress-photos').upload(path, blob, { contentType: 'image/jpeg' });
+    if (error) throw error;
+    return path;
+  } catch(err){
+    console.warn('progress photo upload failed', err);
+    return null;
+  }
+}
+
+const timelapseBtn = document.getElementById('timelapseBtn');
+const timelapseNote = document.getElementById('timelapseNote');
+const timelapseCanvas = document.getElementById('timelapseCanvas');
+const timelapseCtx = timelapseCanvas.getContext('2d');
+const timelapseDateEl = document.getElementById('timelapseDate');
+let timelapseTimer = null;
+
+timelapseBtn.addEventListener('click', async () => {
+  if (!currentUser) return;
+  if (timelapseTimer){ clearInterval(timelapseTimer); timelapseTimer = null; }
+  timelapseNote.style.display = 'none';
+  timelapseBtn.disabled = true;
+  timelapseBtn.textContent = '불러오는 중…';
+
+  try{
+    const { data } = await sb.from('measurements')
+      .select('photo_path, measured_at')
+      .eq('user_id', currentUser.id)
+      .not('photo_path', 'is', null)
+      .order('measured_at', { ascending: true });
+
+    if (!data || !data.length){
+      timelapseNote.textContent = '사진 저장에 동의하고 측정한 기록이 아직 없어요. 다음 측정할 때 "사진 저장" 체크박스를 켜보세요.';
+      timelapseNote.style.display = 'block';
+      timelapseCanvas.classList.add('hidden');
+      return;
+    }
+
+    const withUrls = await Promise.all(data.map(async r => {
+      const { data: signed } = await sb.storage.from('progress-photos').createSignedUrl(r.photo_path, 300);
+      return { url: signed?.signedUrl, date: r.measured_at };
+    }));
+    const validItems = withUrls.filter(v => v.url);
+    if (!validItems.length){
+      timelapseNote.textContent = '사진을 불러오지 못했어요.';
+      timelapseNote.style.display = 'block';
+      return;
+    }
+
+    const images = await Promise.all(validItems.map(v => new Promise(resolve => {
+      const im = new Image();
+      im.onload = () => resolve(im);
+      im.onerror = () => resolve(null);
+      im.src = v.url;
+    })));
+
+    timelapseCanvas.classList.remove('hidden');
+    let idx = 0;
+    function drawFrame(){
+      const im = images[idx];
+      if (im){
+        timelapseCtx.clearRect(0, 0, timelapseCanvas.width, timelapseCanvas.height);
+        const scale = Math.max(timelapseCanvas.width / im.width, timelapseCanvas.height / im.height);
+        const w = im.width * scale, h = im.height * scale;
+        timelapseCtx.drawImage(im, (timelapseCanvas.width - w) / 2, (timelapseCanvas.height - h) / 2, w, h);
+      }
+      timelapseDateEl.textContent = new Date(validItems[idx].date).toLocaleDateString('ko-KR');
+      idx = (idx + 1) % images.length;
+    }
+    drawFrame();
+    timelapseTimer = setInterval(drawFrame, 900);
+  } catch(err){
+    console.warn('timelapse failed', err);
+    timelapseNote.textContent = '슬라이드쇼를 만들지 못했어요.';
+    timelapseNote.style.display = 'block';
+  } finally {
+    timelapseBtn.disabled = false;
+    timelapseBtn.textContent = '슬라이드쇼 만들기';
   }
 });

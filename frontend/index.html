@@ -99,6 +99,10 @@
         </div>
         <div class="steps-dots hidden" id="stepsDots"></div>
         <div class="status-line" id="statusLine"></div>
+        <label style="display:flex;align-items:flex-start;gap:8px;font-size:12.5px;color:var(--ink-dim);cursor:pointer;margin:12px 0;">
+          <input type="checkbox" id="savePhotoConsent" style="margin-top:3px;width:auto;">
+          <span>이 사진 저장해서 나중에 변화 비교하기 (선택 — 저장하면 마이페이지에서 비교/슬라이드쇼에 쓰여요)</span>
+        </label>
         <div class="btn-row">
           <button class="btn hidden" id="confirmBtn">이 지점으로 측정하기</button>
           <button class="btn ghost hidden" id="manualBtn">지점이 정확하지 않아요 · 수동으로 찍기</button>
@@ -202,6 +206,39 @@
         <div id="historyBox" class="hidden"></div>
       </section>
 
+      <section id="compareSection">
+        <div class="sec-label"><span class="n">·</span> 비포/애프터 비교</div>
+        <div class="journal-box">
+          <p style="color:var(--ink-dim);font-size:13px;margin:0 0 14px;">두 측정 시점을 골라서 관절 좌표만 겹쳐 비교해요 (사진 없이 선만 비교하는 방식이라 가벼워요).</p>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;">
+            <select id="compareSelectA" style="flex:1;min-width:140px;"><option value="">이전 측정 선택</option></select>
+            <select id="compareSelectB" style="flex:1;min-width:140px;"><option value="">이후 측정 선택</option></select>
+          </div>
+          <button class="btn ghost" id="compareBtn" style="padding:9px 16px;">겹쳐보기</button>
+          <div class="history-empty" id="compareNote" style="display:none;margin-top:10px;"></div>
+          <div style="display:flex;justify-content:center;margin-top:16px;">
+            <canvas id="compareCanvas" width="300" height="300" style="max-width:100%;background:var(--surface-2);border:1px solid var(--line);border-radius:var(--radius);"></canvas>
+          </div>
+          <div style="display:flex;gap:16px;justify-content:center;margin-top:10px;font-size:12px;color:var(--ink-dim);">
+            <span>⬤ 회색 = 이전</span>
+            <span style="color:var(--tape);">⬤ 주황 = 이후</span>
+          </div>
+        </div>
+      </section>
+
+      <section id="timelapseSection">
+        <div class="sec-label"><span class="n">·</span> 변화 슬라이드쇼</div>
+        <div class="journal-box">
+          <p style="color:var(--ink-dim);font-size:13px;margin:0 0 14px;">사진 저장에 동의하고 측정한 기록들을 자동으로 넘겨가며 보여줘요. (동영상 파일로 저장하는 기능은 아직 없어요.)</p>
+          <button class="btn ghost" id="timelapseBtn" style="padding:9px 16px;">슬라이드쇼 만들기</button>
+          <div class="history-empty" id="timelapseNote" style="display:none;margin-top:10px;"></div>
+          <div style="display:flex;flex-direction:column;align-items:center;margin-top:16px;">
+            <canvas id="timelapseCanvas" width="320" height="320" class="hidden" style="max-width:100%;background:var(--surface-2);border:1px solid var(--line);border-radius:var(--radius);"></canvas>
+            <div id="timelapseDate" style="color:var(--ink-dim);font-size:12px;margin-top:8px;"></div>
+          </div>
+        </div>
+      </section>
+
       <section id="goalSection">
         <div class="sec-label"><span class="n">·</span> 목표</div>
         <div class="journal-box">
@@ -269,6 +306,7 @@
           <button class="btn" id="liveStartBtn">카메라 시작</button>
           <button class="btn ghost hidden" id="liveStopBtn">카메라 중지</button>
           <button class="btn ghost hidden" id="liveSaveBtn">기록장에 저장</button>
+          <button class="btn ghost" id="liveVoiceBtn">🔊 음성 켜짐</button>
         </div>
       </section>
     </div>
