@@ -189,3 +189,24 @@ footer strong{color:var(--ink);}
   .tab-btn{padding:9px 9px;font-size:10px;}
   h1{font-size:22px;}
 }
+
+/* ── 운동사전 유튜브 영상 카드 (6일차) ── */
+.video-list{display:none;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-top:12px;}
+.video-card{display:block;background:var(--surface-2);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;text-decoration:none;color:var(--ink);transition:border-color .15s ease;}
+.video-card:hover{border-color:var(--tape);}
+.video-card img{width:100%;display:block;aspect-ratio:16/9;object-fit:cover;background:var(--surface);}
+.video-info{padding:8px 10px;}
+.video-title{font-size:12px;line-height:1.4;margin-bottom:4px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+.video-channel{font-size:10.5px;color:var(--ink-dim);}
+
+/* ── 라이브 트레이너 (7일차) ── */
+.live-stage-wrap{position:relative;max-width:480px;margin:0 auto;border-radius:var(--radius);overflow:hidden;background:var(--surface);border:1px solid var(--line);transform:scaleX(-1);}
+.live-stage-wrap video{width:100%;display:block;background:#000;}
+.live-stage-wrap canvas{position:absolute;top:0;left:0;width:100%;height:100%;}
+.live-hud{display:flex;flex-direction:column;align-items:center;gap:4px;margin:20px 0;}
+.live-rep-count{font-family:'Barlow Condensed',sans-serif;font-size:64px;font-weight:700;color:var(--tape);line-height:1;}
+.live-status{color:var(--ink-dim);font-size:14px;text-align:center;}
+
+@media (max-width: 640px){
+  .live-rep-count{font-size:48px;}
+}

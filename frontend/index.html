@@ -68,6 +68,7 @@
       <button class="tab-btn" data-tab="journal">기록장</button>
       <button class="tab-btn" data-tab="mypage">마이페이지</button>
       <button class="tab-btn" data-tab="library">운동사전</button>
+      <button class="tab-btn" data-tab="live">라이브 트레이너</button>
     </nav>
 
     <!-- ===== 탭: 측정 ===== -->
@@ -244,6 +245,31 @@
         <div class="sec-label"><span class="n">·</span> 운동사전</div>
         <input type="text" id="libSearch" placeholder="머신 이름이나 부위로 검색 (예: 어깨, 랫풀다운)" style="width:100%; margin-bottom:16px;">
         <div id="libraryList"></div>
+      </section>
+    </div>
+
+    <!-- ===== 탭: 라이브 트레이너 ===== -->
+    <div class="tab-panel hidden" id="tab-live">
+      <section id="liveSection">
+        <div class="sec-label"><span class="n">·</span> 라이브 트레이너 (베타 · 스쿼트 전용)</div>
+        <p style="color:var(--ink-dim);font-size:13px;margin:0 0 14px;">카메라로 스쿼트하는 모습을 비추면 자동으로 횟수를 세줘요. 무릎·엉덩이·발목이 화면에 잘 보이도록 카메라에서 조금 떨어져 서 주세요. 카메라는 이 컴퓨터(localhost)에서만 켜져요.</p>
+        <div class="fallback-notice hidden" id="liveNotice">
+          <span>ⓘ</span>
+          <span id="liveNoticeText"></span>
+        </div>
+        <div class="live-stage-wrap">
+          <video id="liveVideo" autoplay playsinline muted></video>
+          <canvas id="liveCanvas"></canvas>
+        </div>
+        <div class="live-hud">
+          <div class="live-rep-count" id="liveRepCount">0</div>
+          <div class="live-status" id="liveStatus">카메라를 켜서 시작하세요</div>
+        </div>
+        <div class="btn-row">
+          <button class="btn" id="liveStartBtn">카메라 시작</button>
+          <button class="btn ghost hidden" id="liveStopBtn">카메라 중지</button>
+          <button class="btn ghost hidden" id="liveSaveBtn">기록장에 저장</button>
+        </div>
       </section>
     </div>
 

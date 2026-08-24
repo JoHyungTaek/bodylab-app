@@ -12,13 +12,16 @@ const PORT = process.env.PORT || 8787;
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY;
 
 if (!ANTHROPIC_API_KEY) console.warn('⚠️  ANTHROPIC_API_KEY가 .env에 없어요 — AI 코치가 동작하지 않아요.');
 if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) console.warn('⚠️  SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY가 .env에 없어요 — 로그인 검증이 동작하지 않아요.');
+if (!YOUTUBE_API_KEY) console.warn('⚠️  YOUTUBE_API_KEY가 .env에 없어요 — 운동사전 영상 연동이 동작하지 않아요.');
 
 const supabaseAdmin = createClient(SUPABASE_URL || '', SUPABASE_SERVICE_ROLE_KEY || '');
 
 const DAILY_COACH_LIMIT = 20;
+const YOUTUBE_CACHE_DAYS = 30;
 
 const app = express();
 app.use(cors());
@@ -204,6 +207,58 @@ ${journalSummary}`,
   } catch (err) {
     console.error('report generation failed:', err);
     res.status(500).json({ error: '리포트 생성 중 오류가 발생했어요.' });
+  }
+});
+
+app.get('/api/youtube-search', requireUser, async (req, res) => {
+  const q = (req.query.q || '').toString().trim();
+  if (!q) return res.status(400).json({ error: '검색어가 필요해요.' });
+  if (!YOUTUBE_API_KEY) return res.status(500).json({ error: '서버에 YOUTUBE_API_KEY가 설정되지 않았어요.' });
+
+  try {
+    const { data: cached } = await supabaseAdmin
+      .from('youtube_cache')
+      .select('results, cached_at')
+      .eq('query', q)
+      .maybeSingle();
+
+    const cacheAgeDays = cached ? (Date.now() - new Date(cached.cached_at).getTime()) / (1000 * 60 * 60 * 24) : Infinity;
+    if (cached && cacheAgeDays < YOUTUBE_CACHE_DAYS) {
+      return res.json({ results: cached.results, cached: true });
+    }
+
+    const searchUrl = new URL('https://www.googleapis.com/youtube/v3/search');
+    searchUrl.searchParams.set('key', YOUTUBE_API_KEY);
+    searchUrl.searchParams.set('part', 'snippet');
+    searchUrl.searchParams.set('q', `${q} 사용법`);
+    searchUrl.searchParams.set('type', 'video');
+    searchUrl.searchParams.set('maxResults', '3');
+    searchUrl.searchParams.set('relevanceLanguage', 'ko');
+    searchUrl.searchParams.set('safeSearch', 'strict');
+
+    const ytRes = await fetch(searchUrl.toString());
+    const ytData = await ytRes.json();
+    if (!ytRes.ok) {
+      console.error('YouTube API error:', ytData);
+      return res.status(ytRes.status).json({ error: '영상을 불러오지 못했어요.' });
+    }
+
+    const results = (ytData.items || []).map(item => ({
+      videoId: item.id.videoId,
+      title: item.snippet.title,
+      channel: item.snippet.channelTitle,
+      thumbnail: item.snippet.thumbnails?.medium?.url || item.snippet.thumbnails?.default?.url || ''
+    }));
+
+    await supabaseAdmin.from('youtube_cache').upsert(
+      { query: q, results, cached_at: new Date().toISOString() },
+      { onConflict: 'query' }
+    );
+
+    res.json({ results, cached: false });
+  } catch (err) {
+    console.error('youtube search failed:', err);
+    res.status(500).json({ error: '영상 검색 중 오류가 발생했어요.' });
   }
 });
 

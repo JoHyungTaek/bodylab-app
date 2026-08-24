@@ -18,7 +18,8 @@ const tabPanels = {
   measure: document.getElementById('tab-measure'),
   journal: document.getElementById('tab-journal'),
   mypage: document.getElementById('tab-mypage'),
-  library: document.getElementById('tab-library')
+  library: document.getElementById('tab-library'),
+  live: document.getElementById('tab-live')
 };
 const mypageEmail = document.getElementById('mypageEmail');
 const mypageNickname = document.getElementById('mypageNickname');
@@ -32,6 +33,7 @@ const statCoachUsage = document.getElementById('statCoachUsage');
 const COACH_DAILY_LIMIT = 20;
 
 function switchTab(name){
+  if (typeof liveRunning !== 'undefined' && liveRunning && name !== 'live') stopLiveTrainer();
   Object.entries(tabPanels).forEach(([key, el]) => el.classList.toggle('hidden', key !== name));
   tabButtons.forEach(b => b.classList.toggle('active', b.dataset.tab === name));
   if (name === 'mypage') renderMyPageStats();
@@ -839,14 +841,56 @@ function renderLibrary(filter){
     libraryList.innerHTML = '<div class="history-empty">검색 결과가 없어요.</div>';
     return;
   }
-  libraryList.innerHTML = items.map(e => `
+  libraryList.innerHTML = items.map((e, i) => `
     <div class="rec-card">
       <div class="rec-area">${escapeHtml(e.name)} <span class="chip" style="margin-left:8px;">${escapeHtml(e.area)}</span></div>
       <div class="rec-reason">${escapeHtml(e.howTo)}</div>
+      <button class="btn ghost" data-video-btn="${escapeHtml(e.name)}" style="padding:8px 14px;font-size:11px;">▶ 관련 영상 보기</button>
+      <div class="video-list" id="video-${i}"></div>
     </div>
   `).join('');
 }
 libSearch.addEventListener('input', () => renderLibrary(libSearch.value));
+
+async function fetchExerciseVideos(name, containerEl){
+  containerEl.innerHTML = '<div class="history-empty">영상을 불러오는 중…</div>';
+  try{
+    const res = await fetch(`/api/youtube-search?q=${encodeURIComponent(name)}`, {
+      headers: { 'Authorization': `Bearer ${accessToken}` }
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'request failed');
+    if (!data.results || !data.results.length){
+      containerEl.innerHTML = '<div class="history-empty">관련 영상을 찾지 못했어요.</div>';
+      return;
+    }
+    containerEl.innerHTML = data.results.map(v => `
+      <a href="https://www.youtube.com/watch?v=${encodeURIComponent(v.videoId)}" target="_blank" rel="noopener" class="video-card">
+        <img src="${v.thumbnail}" alt="${escapeHtml(v.title)}" loading="lazy">
+        <div class="video-info">
+          <div class="video-title">${escapeHtml(v.title)}</div>
+          <div class="video-channel">${escapeHtml(v.channel)}</div>
+        </div>
+      </a>
+    `).join('');
+  } catch(err){
+    console.warn('youtube fetch failed', err);
+    containerEl.innerHTML = '<div class="history-empty">영상을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.</div>';
+  }
+}
+
+libraryList.addEventListener('click', e => {
+  const btn = e.target.closest('[data-video-btn]');
+  if (!btn) return;
+  const container = btn.nextElementSibling;
+  if (container.dataset.loaded === '1'){
+    container.style.display = container.style.display === 'none' ? 'grid' : 'none';
+    return;
+  }
+  container.dataset.loaded = '1';
+  container.style.display = 'grid';
+  fetchExerciseVideos(btn.dataset.videoBtn, container);
+});
 
 /* ---------- AI 리포트 ---------- */
 const generateReportBtn = document.getElementById('generateReportBtn');
@@ -880,5 +924,200 @@ generateReportBtn.addEventListener('click', async () => {
   } finally {
     generateReportBtn.disabled = false;
     generateReportBtn.textContent = '이번 달 리포트 생성';
+  }
+});
+
+/* ---------- 라이브 트레이너 (베타 · 스쿼트 전용) ---------- */
+const liveVideo = document.getElementById('liveVideo');
+const liveCanvas = document.getElementById('liveCanvas');
+const liveCtx = liveCanvas.getContext('2d');
+const liveStartBtn = document.getElementById('liveStartBtn');
+const liveStopBtn = document.getElementById('liveStopBtn');
+const liveSaveBtn = document.getElementById('liveSaveBtn');
+const liveRepCountEl = document.getElementById('liveRepCount');
+const liveStatusEl = document.getElementById('liveStatus');
+const liveNotice = document.getElementById('liveNotice');
+const liveNoticeText = document.getElementById('liveNoticeText');
+
+let liveLandmarker = null;
+let liveStream = null;
+let liveRunning = false;
+let liveRepCount = 0;
+let squatState = 'up';
+let lastVideoTime = -1;
+
+const SQUAT_DOWN_ANGLE = 110; // 이 각도보다 작아지면 "앉음"으로 판단
+const SQUAT_UP_ANGLE = 160;   // 이 각도보다 커지면 "일어섬"으로 판단 (반복 카운트)
+
+function angleAtPoint(a, b, c){
+  // b 지점에서 a-b-c 가 이루는 각도 (도 단위)
+  const v1x = a.x - b.x, v1y = a.y - b.y;
+  const v2x = c.x - b.x, v2y = c.y - b.y;
+  const mag1 = Math.hypot(v1x, v1y), mag2 = Math.hypot(v2x, v2y);
+  if (mag1 === 0 || mag2 === 0) return 180;
+  const cos = Math.min(1, Math.max(-1, (v1x*v2x + v1y*v2y) / (mag1 * mag2)));
+  return Math.acos(cos) * 180 / Math.PI;
+}
+
+function showLiveNotice(msg){
+  liveNoticeText.textContent = msg;
+  liveNotice.classList.remove('hidden');
+}
+
+async function initLiveLandmarker(){
+  const vision = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm");
+  liveLandmarker = await PoseLandmarker.createFromOptions(vision, {
+    baseOptions: {
+      modelAssetPath: "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task",
+      delegate: "GPU"
+    },
+    runningMode: "VIDEO",
+    numPoses: 1
+  });
+}
+
+async function startLiveTrainer(){
+  liveNotice.classList.add('hidden');
+  liveSaveBtn.classList.add('hidden');
+
+  try{
+    liveStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'user', width: 640, height: 480 },
+      audio: false
+    });
+  } catch(err){
+    console.warn('camera access failed', err);
+    showLiveNotice('카메라를 사용할 수 없어요. 브라우저 카메라 권한을 확인해 주세요. (카메라는 localhost 또는 https 환경에서만 동작해요 — 폰으로 접속 중이면 컴퓨터에서 다시 시도해 주세요.)');
+    return;
+  }
+
+  liveVideo.srcObject = liveStream;
+  await liveVideo.play();
+  liveCanvas.width = liveVideo.videoWidth;
+  liveCanvas.height = liveVideo.videoHeight;
+
+  if (!liveLandmarker){
+    liveStatusEl.textContent = 'AI 모델 불러오는 중…';
+    try{
+      await initLiveLandmarker();
+    } catch(err){
+      console.warn('live landmarker init failed', err);
+      showLiveNotice('AI 모델을 불러오지 못했어요. 네트워크 상태를 확인하고 다시 시도해 주세요.');
+      stopLiveTrainer();
+      return;
+    }
+  }
+
+  liveRepCount = 0;
+  squatState = 'up';
+  liveRepCountEl.textContent = '0';
+  liveStatusEl.textContent = '준비됐어요 — 천천히 앉아보세요';
+
+  liveRunning = true;
+  liveStartBtn.classList.add('hidden');
+  liveStopBtn.classList.remove('hidden');
+  requestAnimationFrame(liveLoop);
+}
+
+function liveLoop(){
+  if (!liveRunning) return;
+  if (liveVideo.currentTime !== lastVideoTime){
+    lastVideoTime = liveVideo.currentTime;
+    const result = liveLandmarker.detectForVideo(liveVideo, performance.now());
+    const lm = result.landmarks && result.landmarks[0];
+    liveCtx.clearRect(0, 0, liveCanvas.width, liveCanvas.height);
+    if (lm){
+      drawLiveSkeleton(lm);
+      processSquatFrame(lm);
+    }
+  }
+  requestAnimationFrame(liveLoop);
+}
+
+function drawLiveSkeleton(lm){
+  const edges = [[11,12],[11,23],[12,24],[23,24],[23,25],[25,27],[24,26],[26,28]];
+  liveCtx.strokeStyle = 'rgba(255,107,53,0.7)';
+  liveCtx.lineWidth = 3;
+  edges.forEach(([a,b]) => {
+    liveCtx.beginPath();
+    liveCtx.moveTo(lm[a].x * liveCanvas.width, lm[a].y * liveCanvas.height);
+    liveCtx.lineTo(lm[b].x * liveCanvas.width, lm[b].y * liveCanvas.height);
+    liveCtx.stroke();
+  });
+  [23,24,25,26,27,28].forEach(i => {
+    liveCtx.beginPath();
+    liveCtx.arc(lm[i].x * liveCanvas.width, lm[i].y * liveCanvas.height, 5, 0, Math.PI*2);
+    liveCtx.fillStyle = '#FF6B35';
+    liveCtx.fill();
+  });
+}
+
+function processSquatFrame(lm){
+  const hipL = lm[23], kneeL = lm[25], ankleL = lm[27];
+  const hipR = lm[24], kneeR = lm[26], ankleR = lm[28];
+
+  const visOk = Math.min(
+    hipL.visibility ?? 1, kneeL.visibility ?? 1, ankleL.visibility ?? 1,
+    hipR.visibility ?? 1, kneeR.visibility ?? 1, ankleR.visibility ?? 1
+  ) > 0.5;
+
+  if (!visOk){
+    liveStatusEl.textContent = '하체가 잘 안 보여요 — 카메라에서 조금 더 뒤로 가주세요';
+    return;
+  }
+
+  const angleL = angleAtPoint(hipL, kneeL, ankleL);
+  const angleR = angleAtPoint(hipR, kneeR, ankleR);
+  const avgAngle = (angleL + angleR) / 2;
+
+  if (squatState === 'up' && avgAngle < SQUAT_DOWN_ANGLE){
+    squatState = 'down';
+    liveStatusEl.textContent = '내려갔어요 👇 이제 천천히 일어나세요';
+  } else if (squatState === 'down' && avgAngle > SQUAT_UP_ANGLE){
+    squatState = 'up';
+    liveRepCount++;
+    liveRepCountEl.textContent = String(liveRepCount);
+    liveStatusEl.textContent = `${liveRepCount}회 완료! 👍`;
+    liveSaveBtn.classList.remove('hidden');
+  } else if (squatState === 'up'){
+    liveStatusEl.textContent = '준비됐어요 — 천천히 앉아보세요';
+  }
+}
+
+function stopLiveTrainer(){
+  liveRunning = false;
+  if (liveStream){
+    liveStream.getTracks().forEach(t => t.stop());
+    liveStream = null;
+  }
+  liveCtx.clearRect(0, 0, liveCanvas.width, liveCanvas.height);
+  liveStartBtn.classList.remove('hidden');
+  liveStopBtn.classList.add('hidden');
+}
+
+liveStartBtn.addEventListener('click', startLiveTrainer);
+liveStopBtn.addEventListener('click', stopLiveTrainer);
+
+liveSaveBtn.addEventListener('click', async () => {
+  if (!currentUser || liveRepCount === 0) return;
+  const date = todayStr();
+  const noteToAdd = `스쿼트 ${liveRepCount}회 (라이브 트레이너)`;
+  try{
+    const { data } = await sb.from('journal_entries')
+      .select('note')
+      .eq('user_id', currentUser.id)
+      .eq('entry_date', date)
+      .maybeSingle();
+    const merged = data?.note ? `${data.note}, ${noteToAdd}` : noteToAdd;
+    await sb.from('journal_entries').upsert(
+      { user_id: currentUser.id, entry_date: date, note: merged },
+      { onConflict: 'user_id,entry_date' }
+    );
+    liveStatusEl.textContent = '기록장에 저장됐어요!';
+    liveSaveBtn.classList.add('hidden');
+    renderJournal();
+  } catch(err){
+    console.warn('live save failed', err);
+    liveStatusEl.textContent = '저장에 실패했어요. 다시 시도해 주세요.';
   }
 });
