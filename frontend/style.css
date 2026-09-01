@@ -210,3 +210,18 @@ footer strong{color:var(--ink);}
 @media (max-width: 640px){
   .live-rep-count{font-size:48px;}
 }
+
+/* ── 소셜 로그인 버튼 (공식 브랜드 컬러) ── */
+.btn-social{
+  display:flex; align-items:center; justify-content:center; gap:10px;
+  width:100%; padding:11px 18px; border-radius:var(--radius);
+  font-family:'Inter',sans-serif; font-size:14px; font-weight:600;
+  cursor:pointer; transition:filter .15s ease;
+}
+.btn-social:hover{ filter:brightness(0.95); }
+.btn-google{
+  background:#FFFFFF; color:#1F1F1F; border:1px solid #DADCE0;
+}
+.btn-kakao{
+  background:#FEE500; color:#191919; border:none;
+}

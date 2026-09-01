@@ -103,7 +103,10 @@ async function embedText(text, inputType) {
     body: JSON.stringify({ input: [text], model: 'voyage-3-lite', input_type: inputType })
   });
   const data = await res.json();
-  if (!res.ok) throw new Error(data.error || 'embedding failed');
+  if (!res.ok) {
+    console.error('Voyage API 응답 상태:', res.status, JSON.stringify(data));
+    throw new Error((data.error && data.error.message) || data.detail || JSON.stringify(data) || 'embedding failed');
+  }
   return data.data[0].embedding;
 }
 
@@ -131,16 +134,23 @@ const EXERCISE_LIBRARY_SEED = [
   { name:'한 발 브릿지', content:'골반 밸런스, 코어 운동. 한 다리로 골반을 들어올립니다. 좌우 비대칭 교정, 기구 없이 가능.' }
 ];
 
+function sleep(ms){ return new Promise(resolve => setTimeout(resolve, ms)); }
+
 // 서버 시작 시 한 번만 임베딩 생성 (이미 있으면 건너뜀)
+// 결제 수단 미등록 계정은 Voyage API가 1분에 3번으로 제한하므로, 요청 사이에 대기 시간을 둠
+// (결제 수단을 등록하면 이 대기 없이 훨씬 빨리 끝나요 — .env에 카드 등록 여부와 무관하게 동작은 동일)
 async function ensureLibraryEmbeddings(){
   if (!VOYAGE_API_KEY) return;
   try {
     const { count } = await supabaseAdmin.from('exercise_embeddings').select('*', { count: 'exact', head: true });
     if (count && count > 0) return;
-    console.log('운동사전 임베딩 생성 중... (최초 1회)');
-    for (const item of EXERCISE_LIBRARY_SEED) {
+    console.log(`운동사전 임베딩 생성 중... (최초 1회, 결제 수단 미등록 시 약 ${Math.ceil(EXERCISE_LIBRARY_SEED.length / 3)}분 소요)`);
+    for (let i = 0; i < EXERCISE_LIBRARY_SEED.length; i++) {
+      const item = EXERCISE_LIBRARY_SEED[i];
       const embedding = await embedText(`${item.name}: ${item.content}`, 'document');
       await supabaseAdmin.from('exercise_embeddings').upsert({ name: item.name, content: item.content, embedding });
+      console.log(`  (${i + 1}/${EXERCISE_LIBRARY_SEED.length}) ${item.name} 완료`);
+      if (i < EXERCISE_LIBRARY_SEED.length - 1) await sleep(21000); // 1분에 3개 제한 → 21초 간격
     }
     console.log('운동사전 임베딩 생성 완료');
   } catch (e) {
@@ -420,10 +430,8 @@ app.post('/api/report', requireUser, async (req, res) => {
     const system = [
       '너는 친근한 한국어 헬스 코치야. 사용자의 최근 30일 데이터를 보고 짧은 리포트를 써줘.',
       goalLine,
-      `최근 30일 측정 기록:
-${measurementSummary}`,
-      `최근 30일 운동 기록:
-${journalSummary}`,
+      `최근 30일 측정 기록:\n${measurementSummary}`,
+      `최근 30일 운동 기록:\n${journalSummary}`,
       '리포트는 다음 순서로 써줘: 1) 이번 기간 요약(2~3문장) 2) 잘한 점 3) 아쉬운 점 또는 놓친 부분 4) 다음 달 제안 1~2가지.',
       '체중감량/칼로리/식단 수치는 다루지 말고 운동·자세·꾸준함 중심으로만 써줘. 너무 길지 않게, 300자 내외로 요약해줘.'
     ].join('\n\n');
