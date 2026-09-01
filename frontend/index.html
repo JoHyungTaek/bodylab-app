@@ -50,6 +50,17 @@
 
       <button class="btn" id="authSubmitBtn" style="width:100%;">로그인</button>
       <div class="auth-error" id="authError"></div>
+
+      <div style="display:flex;align-items:center;gap:10px;margin:18px 0;color:var(--ink-dim);font-size:11px;">
+        <div style="flex:1;height:1px;background:var(--line);"></div>
+        <span>또는</span>
+        <div style="flex:1;height:1px;background:var(--line);"></div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <button class="btn ghost" id="googleLoginBtn" style="width:100%;">Google로 계속하기</button>
+        <button class="btn ghost" id="kakaoLoginBtn" style="width:100%;">카카오로 계속하기</button>
+      </div>
+
       <div class="auth-switch" id="forgotPasswordRow">
         <a id="forgotPasswordLink">비밀번호를 잊으셨나요?</a>
       </div>
@@ -88,6 +99,10 @@
         <div class="stage" id="stage">
           <div class="stage-hint" id="stageHint">분석 중…</div>
           <canvas id="canvas"></canvas>
+        </div>
+        <div class="fallback-notice hidden" id="photoQualityNotice">
+          <span>🔮</span>
+          <span id="photoQualityText"></span>
         </div>
         <div class="fallback-notice hidden" id="fallbackNotice">
           <span>ⓘ</span>
@@ -280,6 +295,16 @@
     <div class="tab-panel hidden" id="tab-library">
       <section id="librarySection">
         <div class="sec-label"><span class="n">·</span> 운동사전</div>
+
+        <div class="journal-box" style="margin-bottom:20px;">
+          <label style="font-size:12px;color:var(--ink-dim);" for="aiLibSearch">🔮 AI 자연어 검색 (RAG)</label>
+          <div style="display:flex;gap:8px;margin-top:8px;">
+            <input type="text" id="aiLibSearch" placeholder="예: 어깨 아픈데 할 수 있는 운동" style="flex:1;">
+            <button class="btn" id="aiLibSearchBtn" style="padding:10px 16px;">AI로 검색</button>
+          </div>
+          <div class="history-empty" id="aiLibSearchNote" style="display:none;margin-top:8px;"></div>
+        </div>
+
         <input type="text" id="libSearch" placeholder="머신 이름이나 부위로 검색 (예: 어깨, 랫풀다운)" style="width:100%; margin-bottom:16px;">
         <div id="libraryList"></div>
       </section>

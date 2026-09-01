@@ -91,6 +91,33 @@ forgotPasswordLink.addEventListener('click', async () => {
   }
 });
 
+const googleLoginBtn = document.getElementById('googleLoginBtn');
+const kakaoLoginBtn = document.getElementById('kakaoLoginBtn');
+
+googleLoginBtn.addEventListener('click', async () => {
+  const { error } = await sb.auth.signInWithOAuth({
+    provider: 'google',
+    options: { redirectTo: window.location.origin }
+  });
+  if (error) {
+    authError.style.color = 'var(--signal)';
+    authError.textContent = error.message || 'Google 로그인에 실패했어요.';
+    authError.style.display = 'block';
+  }
+});
+
+kakaoLoginBtn.addEventListener('click', async () => {
+  const { error } = await sb.auth.signInWithOAuth({
+    provider: 'kakao',
+    options: { redirectTo: window.location.origin }
+  });
+  if (error) {
+    authError.style.color = 'var(--signal)';
+    authError.textContent = error.message || '카카오 로그인에 실패했어요.';
+    authError.style.display = 'block';
+  }
+});
+
 authSubmitBtn.addEventListener('click', async () => {
   const email = authEmail.value.trim();
   const password = authPassword.value;
@@ -239,6 +266,7 @@ function startStage(){
   stageSection.classList.remove('hidden');
   resultSection.classList.add('hidden');
   fallbackNotice.classList.add('hidden');
+  photoQualityNotice.classList.add('hidden');
   confirmBtn.classList.add('hidden');
   manualBtn.classList.add('hidden');
   stepsDots.classList.add('hidden');
@@ -251,6 +279,7 @@ function startStage(){
   canvas.height = img.naturalHeight * scale;
   drawBase();
   runAutoDetect();
+  checkPhotoQuality();
 }
 function drawBase(){ ctx.clearRect(0,0,canvas.width,canvas.height); ctx.drawImage(img,0,0,canvas.width,canvas.height); }
 
@@ -557,13 +586,16 @@ async function renderJournal(){
   }
   journalStats.innerHTML = `<span class="streak-badge">🔥 연속 ${streak}일</span><span class="streak-badge">총 ${data.length}일 기록</span>`;
   if (!data.length){ journalList.innerHTML = '<div class="journal-empty">아직 기록이 없어요.</div>'; return; }
-  journalList.innerHTML = data.map(r => `
+  journalList.innerHTML = data.map(r => {
+    const tagChips = (r.tags?.muscle_groups || []).map(t => `<span class="chip" style="font-size:10px;padding:3px 8px;">${escapeHtml(t)}</span>`).join(' ');
+    return `
     <div class="journal-row">
       <div class="jdate">${r.entry_date}</div>
-      <div class="jnote" data-edit="${r.entry_date}">${escapeHtml(r.note)}</div>
+      <div class="jnote" data-edit="${r.entry_date}">${escapeHtml(r.note)}${tagChips ? `<div style="margin-top:6px;display:flex;gap:4px;flex-wrap:wrap;">${tagChips}</div>` : ''}</div>
       <button class="jdel" data-del="${r.entry_date}">✕</button>
     </div>
-  `).join('');
+  `;
+  }).join('');
 }
 
 journalList.addEventListener('click', async e => {
@@ -584,7 +616,25 @@ journalSaveBtn.addEventListener('click', async () => {
   await sb.from('journal_entries').upsert({ user_id: currentUser.id, entry_date: date, note }, { onConflict: 'user_id,entry_date' });
   journalNote.value = '';
   renderJournal();
+  extractJournalTags(date, note);
 });
+
+async function extractJournalTags(date, note){
+  if (!accessToken) return;
+  try{
+    const res = await fetch('/api/journal-extract', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
+      body: JSON.stringify({ note })
+    });
+    if (!res.ok) return;
+    const tags = await res.json();
+    await sb.from('journal_entries').update({ tags }).eq('user_id', currentUser.id).eq('entry_date', date);
+    renderJournal();
+  } catch(err){
+    console.warn('journal tag extraction failed', err);
+  }
+}
 
 /* ---------- AI coach (via backend proxy) ---------- */
 function escapeHtml(str){ const d = document.createElement('div'); d.textContent = str; return d.innerHTML; }
@@ -596,7 +646,10 @@ function resetCoachChat(){
   renderChatMessages();
 }
 function renderChatMessages(){
-  coachMessages.innerHTML = chatMessages.map(m => `<div class="msg ${m.role}${m.pending?' pending':''}">${escapeHtml(m.content)}</div>`).join('');
+  coachMessages.innerHTML = chatMessages.map(m => {
+    const text = (m.pending && !m.content) ? '생각하는 중…' : m.content;
+    return `<div class="msg ${m.role}${m.pending ? ' pending' : ''}">${escapeHtml(text)}</div>`;
+  }).join('');
   coachMessages.scrollTop = coachMessages.scrollHeight;
 }
 function buildCoachSystemPrompt(){
@@ -619,29 +672,62 @@ async function sendCoachMessage(text){
   if (!currentSummary || !text.trim() || !accessToken) return;
   coachError.style.display = 'none';
   chatMessages.push({ role:'user', content:text });
-  chatMessages.push({ role:'assistant', content:'생각하는 중…', pending:true });
+  chatMessages.push({ role:'assistant', content:'', pending:true });
   renderChatMessages();
 
   const apiMessages = chatMessages.filter(m => !m.pending).map(m => ({ role:m.role, content:m.content }));
+  let assembled = '';
+
   try{
-    const res = await fetch('/api/coach', {
+    const res = await fetch('/api/coach-stream', {
       method:'POST',
       headers:{ 'Content-Type':'application/json', 'Authorization': `Bearer ${accessToken}` },
       body: JSON.stringify({ system: buildCoachSystemPrompt(), messages: apiMessages })
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'request failed');
-    const textOut = (data.content || []).map(b => b.type === 'text' ? b.text : '').join('\n').trim() || '죄송해요, 답변을 만들지 못했어요.';
-    chatMessages = chatMessages.filter(m => !m.pending);
-    chatMessages.push({ role:'assistant', content:textOut });
+    if (!res.ok || !res.body){
+      let errMsg = '코치 응답을 받아오지 못했어요.';
+      try{ const errData = await res.json(); if (errData.error) errMsg = errData.error; } catch(e){}
+      throw new Error(errMsg);
+    }
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true){
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream:true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop();
+      for (const line of lines){
+        if (!line.startsWith('data: ')) continue;
+        const payload = line.slice(6);
+        try{
+          const evt = JSON.parse(payload);
+          if (evt.error) throw new Error(evt.error);
+          if (evt.text){
+            assembled += evt.text;
+            const last = chatMessages[chatMessages.length - 1];
+            last.content = assembled;
+            last.pending = false;
+            renderChatMessages();
+          }
+        } catch(parseErr){
+          if (parseErr instanceof Error && parseErr.message && !parseErr.message.includes('JSON')) throw parseErr;
+        }
+      }
+    }
+
+    const last = chatMessages[chatMessages.length - 1];
+    last.pending = false;
+    if (!assembled) last.content = '죄송해요, 답변을 만들지 못했어요.';
     renderChatMessages();
   } catch(err){
     console.warn('coach chat failed', err);
     chatMessages = chatMessages.filter(m => !m.pending);
     renderChatMessages();
-    coachError.textContent = (err.message && err.message !== 'request failed')
-      ? err.message
-      : '코치 응답을 받아오지 못했어요. 잠시 후 다시 시도해 주세요.';
+    coachError.textContent = err.message || '코치 응답을 받아오지 못했어요. 잠시 후 다시 시도해 주세요.';
     coachError.style.display = 'block';
   }
 }
@@ -855,25 +941,69 @@ const EXERCISE_LIBRARY = [
 const libSearch = document.getElementById('libSearch');
 const libraryList = document.getElementById('libraryList');
 
-function renderLibrary(filter){
-  const q = (filter || '').trim().toLowerCase();
-  const items = EXERCISE_LIBRARY.filter(e =>
-    !q || e.name.toLowerCase().includes(q) || e.area.toLowerCase().includes(q)
-  );
+function renderLibraryCards(items){
   if (!items.length){
     libraryList.innerHTML = '<div class="history-empty">검색 결과가 없어요.</div>';
     return;
   }
   libraryList.innerHTML = items.map((e, i) => `
     <div class="rec-card">
-      <div class="rec-area">${escapeHtml(e.name)} <span class="chip" style="margin-left:8px;">${escapeHtml(e.area)}</span></div>
+      <div class="rec-area">${escapeHtml(e.name)} <span class="chip" style="margin-left:8px;">${escapeHtml(e.area || '')}</span></div>
       <div class="rec-reason">${escapeHtml(e.howTo)}</div>
       <button class="btn ghost" data-video-btn="${escapeHtml(e.name)}" style="padding:8px 14px;font-size:11px;">▶ 관련 영상 보기</button>
       <div class="video-list" id="video-${i}"></div>
     </div>
   `).join('');
 }
+
+function renderLibrary(filter){
+  const q = (filter || '').trim().toLowerCase();
+  const items = EXERCISE_LIBRARY.filter(e =>
+    !q || e.name.toLowerCase().includes(q) || e.area.toLowerCase().includes(q)
+  );
+  renderLibraryCards(items);
+}
 libSearch.addEventListener('input', () => renderLibrary(libSearch.value));
+
+/* ---------- 운동사전 AI 자연어 검색 (RAG) ---------- */
+const aiLibSearch = document.getElementById('aiLibSearch');
+const aiLibSearchBtn = document.getElementById('aiLibSearchBtn');
+const aiLibSearchNote = document.getElementById('aiLibSearchNote');
+
+aiLibSearchBtn.addEventListener('click', async () => {
+  const q = aiLibSearch.value.trim();
+  if (!q || !accessToken) return;
+  aiLibSearchNote.style.display = 'none';
+  aiLibSearchBtn.disabled = true;
+  aiLibSearchBtn.textContent = '검색 중…';
+  try{
+    const res = await fetch(`/api/library-search?q=${encodeURIComponent(q)}`, {
+      headers: { 'Authorization': `Bearer ${accessToken}` }
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'request failed');
+    const names = (data.results || []).map(r => r.name);
+    const matched = names.map(n => EXERCISE_LIBRARY.find(e => e.name === n)).filter(Boolean);
+    if (!matched.length){
+      aiLibSearchNote.textContent = '관련된 운동을 찾지 못했어요.';
+      aiLibSearchNote.style.display = 'block';
+      return;
+    }
+    libSearch.value = '';
+    renderLibraryCards(matched);
+    aiLibSearchNote.textContent = `"${q}"에 대한 AI 추천 결과예요 (관련도 순).`;
+    aiLibSearchNote.style.display = 'block';
+  } catch(err){
+    console.warn('ai library search failed', err);
+    aiLibSearchNote.textContent = (err.message && err.message !== 'request failed')
+      ? err.message
+      : '검색에 실패했어요. 잠시 후 다시 시도해 주세요.';
+    aiLibSearchNote.style.display = 'block';
+  } finally {
+    aiLibSearchBtn.disabled = false;
+    aiLibSearchBtn.textContent = 'AI로 검색';
+  }
+});
 
 async function fetchExerciseVideos(name, containerEl){
   containerEl.innerHTML = '<div class="history-empty">영상을 불러오는 중…</div>';
@@ -1347,3 +1477,35 @@ timelapseBtn.addEventListener('click', async () => {
     timelapseBtn.textContent = '슬라이드쇼 만들기';
   }
 });
+
+/* ---------- 사진 품질 AI 체크 (멀티모달) ---------- */
+const photoQualityNotice = document.getElementById('photoQualityNotice');
+const photoQualityText = document.getElementById('photoQualityText');
+
+async function checkPhotoQuality(){
+  if (!currentUser || !img) return;
+  try{
+    const qc = document.createElement('canvas');
+    const scale = Math.min(1, 400 / img.naturalWidth);
+    qc.width = img.naturalWidth * scale;
+    qc.height = img.naturalHeight * scale;
+    qc.getContext('2d').drawImage(img, 0, 0, qc.width, qc.height);
+    const dataUrl = qc.toDataURL('image/jpeg', 0.7);
+    const base64 = dataUrl.split(',')[1];
+
+    const res = await fetch('/api/photo-feedback', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
+      body: JSON.stringify({ imageBase64: base64, mediaType: 'image/jpeg' })
+    });
+    if (!res.ok) return;
+    const data = await res.json();
+    const textOut = (data.content || []).map(b => b.type === 'text' ? b.text : '').join(' ').trim();
+    if (textOut){
+      photoQualityText.textContent = textOut;
+      photoQualityNotice.classList.remove('hidden');
+    }
+  } catch(err){
+    console.warn('photo quality check failed', err);
+  }
+}

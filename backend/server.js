@@ -13,10 +13,12 @@ const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY;
+const VOYAGE_API_KEY = process.env.VOYAGE_API_KEY;
 
 if (!ANTHROPIC_API_KEY) console.warn('⚠️  ANTHROPIC_API_KEY가 .env에 없어요 — AI 코치가 동작하지 않아요.');
 if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) console.warn('⚠️  SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY가 .env에 없어요 — 로그인 검증이 동작하지 않아요.');
 if (!YOUTUBE_API_KEY) console.warn('⚠️  YOUTUBE_API_KEY가 .env에 없어요 — 운동사전 영상 연동이 동작하지 않아요.');
+if (!VOYAGE_API_KEY) console.warn('⚠️  VOYAGE_API_KEY가 .env에 없어요 — 운동사전 AI 검색(RAG)이 동작하지 않아요.');
 
 const supabaseAdmin = createClient(SUPABASE_URL || '', SUPABASE_SERVICE_ROLE_KEY || '');
 
@@ -92,6 +94,235 @@ async function callAnthropic(system, messages) {
   const data = await anthropicRes.json();
   return { ok: anthropicRes.ok, status: anthropicRes.status, data };
 }
+
+// Voyage AI 임베딩 생성 (RAG 검색용)
+async function embedText(text, inputType) {
+  const res = await fetch('https://api.voyageai.com/v1/embeddings', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${VOYAGE_API_KEY}` },
+    body: JSON.stringify({ input: [text], model: 'voyage-3-lite', input_type: inputType })
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'embedding failed');
+  return data.data[0].embedding;
+}
+
+// 운동사전 20개 항목 (프론트엔드 EXERCISE_LIBRARY와 내용 동일, 임베딩 시드용)
+const EXERCISE_LIBRARY_SEED = [
+  { name:'레그프레스', content:'하체 운동. 등받이에 등을 붙이고 발판을 어깨너비로 밟은 뒤 무릎을 밀어냅니다. 허벅지와 둔근을 키우고 싶을 때.' },
+  { name:'스미스머신 스쿼트', content:'하체 운동. 바를 어깨에 걸치고 무릎과 엉덩이를 굽혀 앉았다 일어납니다. 하체 전반, 허벅지 볼륨.' },
+  { name:'레그컬 머신', content:'하체 운동. 패드를 발목 뒤에 걸고 무릎을 굽혀 당깁니다. 허벅지 뒤쪽 햄스트링 강화.' },
+  { name:'레그익스텐션', content:'하체 운동. 패드를 발목 앞에 걸고 무릎을 펴서 다리를 듭니다. 허벅지 앞쪽 대퇴사두근 강화. 무릎이 약할 때는 중량을 낮게.' },
+  { name:'힙쓰러스트 머신', content:'하체 운동. 골반을 위로 밀어올려 엉덩이를 조입니다. 둔근(엉덩이) 강화, 힙업.' },
+  { name:'런지', content:'하체 운동. 한 발을 앞으로 내딛고 무릎을 굽혔다 원위치. 허벅지, 둔근, 균형 감각.' },
+  { name:'랫풀다운', content:'등·어깨 운동. 바를 가슴 쪽으로 당깁니다. 등 넓히기, 어깨 넓어 보이게.' },
+  { name:'사이드 레터럴레이즈 머신', content:'어깨 운동. 팔을 옆으로 들어올립니다. 어깨 측면 삼각근, 어깨 넓어 보이게.' },
+  { name:'숄더프레스 머신', content:'어깨 운동. 손잡이를 머리 위로 밀어올립니다. 어깨 전반 강화.' },
+  { name:'시티드 로우 머신', content:'등 운동. 손잡이를 몸 쪽으로 당겨 견갑골을 모읍니다. 등 두께, 자세 교정.' },
+  { name:'케이블 크로스오버', content:'가슴 운동. 케이블을 앞으로 모아 당깁니다. 가슴 안쪽 라인.' },
+  { name:'체스트프레스', content:'가슴 운동. 손잡이를 앞으로 밀어냅니다. 가슴 전반 강화, 저중량으로도 가능.' },
+  { name:'케이블 우드촙', content:'코어 운동. 대각선으로 몸통을 회전하며 당깁니다. 코어, 허리 라인.' },
+  { name:'플랭크', content:'코어 운동. 팔꿈치와 발끝으로 버팁니다. 복부 코어, 기구 없이 맨몸으로 가능. 허리 통증 있을 때도 비교적 안전.' },
+  { name:'원암 덤벨로우', content:'등 운동, 자세 교정. 한 손으로 덤벨을 당깁니다. 좌우 비대칭 교정, 어깨 비대칭.' },
+  { name:'밴드 풀어파트', content:'자세 교정 운동. 밴드를 양옆으로 벌립니다. 굽은 어깨(라운드 숄더) 교정, 기구 없이 가능.' },
+  { name:'폼롤러 흉추 스트레칭', content:'자세 교정 스트레칭. 등 중간을 늘려줍니다. 거북목, 굽은 등 교정, 통증 완화.' },
+  { name:'힙 어브덕션 머신', content:'골반 밸런스 운동. 다리를 옆으로 벌립니다. 엉덩이 옆쪽 중둔근, 골반 안정성.' },
+  { name:'힙 어덕션 머신', content:'골반 밸런스 운동. 다리를 모읍니다. 허벅지 안쪽 근육.' },
+  { name:'한 발 브릿지', content:'골반 밸런스, 코어 운동. 한 다리로 골반을 들어올립니다. 좌우 비대칭 교정, 기구 없이 가능.' }
+];
+
+// 서버 시작 시 한 번만 임베딩 생성 (이미 있으면 건너뜀)
+async function ensureLibraryEmbeddings(){
+  if (!VOYAGE_API_KEY) return;
+  try {
+    const { count } = await supabaseAdmin.from('exercise_embeddings').select('*', { count: 'exact', head: true });
+    if (count && count > 0) return;
+    console.log('운동사전 임베딩 생성 중... (최초 1회)');
+    for (const item of EXERCISE_LIBRARY_SEED) {
+      const embedding = await embedText(`${item.name}: ${item.content}`, 'document');
+      await supabaseAdmin.from('exercise_embeddings').upsert({ name: item.name, content: item.content, embedding });
+    }
+    console.log('운동사전 임베딩 생성 완료');
+  } catch (e) {
+    console.warn('임베딩 생성 실패:', e.message || e);
+  }
+}
+
+app.get('/api/library-search', requireUser, async (req, res) => {
+  const q = (req.query.q || '').toString().trim();
+  if (!q) return res.status(400).json({ error: '검색어가 필요해요.' });
+  if (!VOYAGE_API_KEY) return res.status(500).json({ error: '서버에 VOYAGE_API_KEY가 설정되지 않았어요.' });
+
+  try {
+    const queryEmbedding = await embedText(q, 'query');
+    const { data, error } = await supabaseAdmin.rpc('match_exercises', { query_embedding: queryEmbedding, match_count: 5 });
+    if (error) throw error;
+    res.json({ results: data });
+  } catch (err) {
+    console.error('library search failed:', err);
+    res.status(500).json({ error: '검색에 실패했어요.' });
+  }
+});
+
+app.post('/api/journal-extract', requireUser, async (req, res) => {
+  const { note } = req.body || {};
+  if (!note || !note.trim()) return res.status(400).json({ error: '내용이 필요해요.' });
+  if (!ANTHROPIC_API_KEY) return res.status(500).json({ error: '서버에 ANTHROPIC_API_KEY가 설정되지 않았어요.' });
+
+  const { today, currentCount } = await getUsageToday(req.user.id);
+  if (currentCount >= DAILY_COACH_LIMIT) {
+    return res.status(429).json({ error: `오늘 AI 기능 사용 횟수(${DAILY_COACH_LIMIT}회)를 다 쓰셨어요.` });
+  }
+
+  const system = [
+    '너는 운동 기록 텍스트에서 정보를 추출하는 도구야. 반드시 아래 JSON 형식으로만 답해. 다른 말은 절대 하지 마.',
+    '{"muscle_groups": ["하체" 등 목록], "exercises": ["운동 이름" 등 목록]}',
+    'muscle_groups 후보: 하체, 등·어깨, 가슴, 코어, 팔, 유산소, 기타',
+    '언급된 내용이 없으면 빈 배열로 답해.'
+  ].join(' ');
+
+  try {
+    const { ok, status, data } = await callAnthropic(system, [{ role: 'user', content: note }]);
+    if (!ok) return res.status(status).json({ error: '분석에 실패했어요.' });
+    const textOut = (data.content || []).map(b => b.type === 'text' ? b.text : '').join('').trim();
+    let parsed;
+    try { parsed = JSON.parse(textOut); } catch (e) { parsed = { muscle_groups: [], exercises: [] }; }
+    await incrementUsage(req.user.id, today, currentCount);
+    res.json(parsed);
+  } catch (err) {
+    console.error('journal extract failed:', err);
+    res.status(500).json({ error: '분석 중 오류가 발생했어요.' });
+  }
+});
+
+app.post('/api/photo-feedback', requireUser, async (req, res) => {
+  const { imageBase64, mediaType } = req.body || {};
+  if (!imageBase64) return res.status(400).json({ error: '이미지가 필요해요.' });
+  if (!ANTHROPIC_API_KEY) return res.status(500).json({ error: '서버에 ANTHROPIC_API_KEY가 설정되지 않았어요.' });
+
+  const { today, currentCount } = await getUsageToday(req.user.id);
+  if (currentCount >= DAILY_COACH_LIMIT) {
+    return res.status(429).json({ error: `오늘 AI 기능 사용 횟수(${DAILY_COACH_LIMIT}회)를 다 쓰셨어요.` });
+  }
+
+  const system = '너는 체형 측정용 사진의 "촬영 품질"만 짧게 평가하는 도우미야. 밝기, 전신이 잘 나왔는지, 정면 여부만 2~3문장으로 짧게 한국어로 평가해줘. 체형이나 몸매, 외모에 대한 평가는 절대 하지 말고 오직 촬영 품질(밝기/구도/각도)만 평가해.';
+
+  try {
+    const anthropicRes = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 300,
+        system,
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'image', source: { type: 'base64', media_type: mediaType || 'image/jpeg', data: imageBase64 } },
+            { type: 'text', text: '이 사진의 촬영 품질을 평가해줘.' }
+          ]
+        }]
+      })
+    });
+    const data = await anthropicRes.json();
+    if (!anthropicRes.ok) {
+      console.error('photo feedback API error:', data);
+      return res.status(anthropicRes.status).json({ error: '평가에 실패했어요.' });
+    }
+    await incrementUsage(req.user.id, today, currentCount);
+    res.json(data);
+  } catch (err) {
+    console.error('photo feedback failed:', err);
+    res.status(500).json({ error: '평가 중 오류가 발생했어요.' });
+  }
+});
+
+app.post('/api/coach-stream', requireUser, async (req, res) => {
+  const { system, messages } = req.body || {};
+  if (!Array.isArray(messages) || messages.length === 0) return res.status(400).end();
+  if (!ANTHROPIC_API_KEY) return res.status(500).end();
+
+  const { today, currentCount } = await getUsageToday(req.user.id);
+  if (currentCount >= DAILY_COACH_LIMIT) {
+    res.status(429).json({ error: `오늘 AI 코치 사용 횟수(${DAILY_COACH_LIMIT}회)를 다 쓰셨어요. 내일 다시 이용해 주세요.` });
+    return;
+  }
+
+  let journalNote = '';
+  try {
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const { data: entries } = await supabaseAdmin
+      .from('journal_entries')
+      .select('entry_date, note')
+      .eq('user_id', req.user.id)
+      .gte('entry_date', sevenDaysAgo)
+      .order('entry_date', { ascending: true });
+    journalNote = entries && entries.length
+      ? ' 최근 7일 실제 운동 기록: ' + entries.map(e => `${e.entry_date}: ${e.note}`).join(' / ')
+      : ' 최근 7일간 운동 기록장에 기록된 내용이 없음.';
+  } catch (e) {
+    console.warn('journal fetch for coach-stream failed:', e);
+  }
+
+  const fullSystem = (system || '') + journalNote;
+
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.flushHeaders();
+
+  try {
+    const anthropicRes = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
+      body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 1200, system: fullSystem, messages, stream: true })
+    });
+
+    if (!anthropicRes.ok || !anthropicRes.body) {
+      res.write(`data: ${JSON.stringify({ error: '코치 응답을 받아오지 못했어요.' })}
+
+`);
+      res.end();
+      return;
+    }
+
+    const reader = anthropicRes.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split(String.fromCharCode(10));
+      buffer = lines.pop();
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const payload = line.slice(6);
+        if (payload === '[DONE]') continue;
+        try {
+          const evt = JSON.parse(payload);
+          if (evt.type === 'content_block_delta' && evt.delta && evt.delta.text) {
+            res.write(`data: ${JSON.stringify({ text: evt.delta.text })}
+
+`);
+          }
+        } catch (e) { /* ignore malformed SSE line */ }
+      }
+    }
+    await incrementUsage(req.user.id, today, currentCount);
+    res.write(`data: ${JSON.stringify({ done: true })}
+
+`);
+    res.end();
+  } catch (err) {
+    console.error('coach stream failed:', err);
+    res.write(`data: ${JSON.stringify({ error: '코치 요청 중 오류가 발생했어요.' })}
+
+`);
+    res.end();
+  }
+});
 
 app.post('/api/coach', requireUser, async (req, res) => {
   const { system, messages } = req.body || {};
@@ -280,4 +511,5 @@ app.get(/^(?!\/api).*/, (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`✅ 서버 실행 중: http://localhost:${PORT}`);
+  ensureLibraryEmbeddings();
 });
