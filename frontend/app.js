@@ -38,6 +38,7 @@ function switchTab(name){
   Object.entries(tabPanels).forEach(([key, el]) => el.classList.toggle('hidden', key !== name));
   tabButtons.forEach(b => b.classList.toggle('active', b.dataset.tab === name));
   if (name === 'mypage') renderMyPageStats();
+  localStorage.setItem('bodylab_last_tab', name);
 }
 tabButtons.forEach(b => b.addEventListener('click', () => switchTab(b.dataset.tab)));
 
@@ -177,7 +178,8 @@ sb.auth.onAuthStateChange(async (event, session) => {
     renderJournal();
     loadGoal();
     renderLibrary('');
-    switchTab('measure');
+    const savedTab = localStorage.getItem('bodylab_last_tab');
+    switchTab(savedTab && tabPanels[savedTab] ? savedTab : 'measure');
   } else {
     authSection.classList.remove('hidden');
     appRoot.classList.add('hidden');
