@@ -1,0 +1,13 @@
+========== BodyLab Search Evaluation ==========
+
+평가 질의 수: 61개
+
+Metric        Baseline    Improved    Change
+Hit@1         67.2%       77.0%       +9.8%p
+Recall@3      82.0%       91.8%       +9.8%p
+Recall@5      90.2%       93.4%       +3.3%p
+MRR@5         0.750       0.843       +0.093
+Avg Latency   302ms       309ms       +7ms
+P95 Latency   464ms       519ms
+
+===============================================

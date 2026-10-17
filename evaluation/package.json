@@ -1,0 +1,16 @@
+{
+  "name": "bodylab-search-evaluation",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "description": "BodyLab 운동사전 검색 품질 평가 스크립트 (baseline vs hybrid)",
+  "scripts": {
+    "baseline": "node evaluate_search.js baseline",
+    "improved": "node evaluate_search.js improved",
+    "compare": "node compare_results.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.0",
+    "dotenv": "^16.4.5"
+  }
+}

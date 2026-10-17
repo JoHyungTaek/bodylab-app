@@ -1,0 +1,1878 @@
+{
+  "mode": "rerank",
+  "metrics": {
+    "n": 61,
+    "hit1Pct": 93.44262295081968,
+    "recall3Pct": 98.36065573770492,
+    "recall5Pct": 98.36065573770492,
+    "mrr5": 0.9535519125683061,
+    "avgLatencyMs": 1622.5409836065573,
+    "p50LatencyMs": 1527,
+    "p95LatencyMs": 2558
+  },
+  "perQuery": [
+    {
+      "query": "레그프레스 어떻게 해요?",
+      "type": "exact_name",
+      "gold": [
+        "레그프레스"
+      ],
+      "results": [
+        {
+          "name": "레그프레스",
+          "score": null
+        },
+        {
+          "name": "레그컬 머신",
+          "score": null
+        },
+        {
+          "name": "레그익스텐션",
+          "score": null
+        },
+        {
+          "name": "숄더프레스 머신",
+          "score": null
+        },
+        {
+          "name": "플랭크",
+          "score": null
+        }
+      ],
+      "latencyMs": 1687
+    },
+    {
+      "query": "스미스머신 스쿼트 자세 알려줘",
+      "type": "exact_name",
+      "gold": [
+        "스미스머신 스쿼트"
+      ],
+      "results": [
+        {
+          "name": "스미스머신 스쿼트",
+          "score": null
+        },
+        {
+          "name": "시티드 로우 머신",
+          "score": null
+        },
+        {
+          "name": "사이드 레터럴레이즈 머신",
+          "score": null
+        },
+        {
+          "name": "힙쓰러스트 머신",
+          "score": null
+        },
+        {
+          "name": "숄더프레스 머신",
+          "score": null
+        }
+      ],
+      "latencyMs": 985
+    },
+    {
+      "query": "레그컬 머신 사용법",
+      "type": "exact_name",
+      "gold": [
+        "레그컬 머신"
+      ],
+      "results": [
+        {
+          "name": "레그컬 머신",
+          "score": null
+        },
+        {
+          "name": "힙쓰러스트 머신",
+          "score": null
+        },
+        {
+          "name": "힙 어덕션 머신",
+          "score": null
+        },
+        {
+          "name": "사이드 레터럴레이즈 머신",
+          "score": null
+        },
+        {
+          "name": "힙 어브덕션 머신",
+          "score": null
+        }
+      ],
+      "latencyMs": 1157
+    },
+    {
+      "query": "플랭크 자세 궁금해요",
+      "type": "exact_name",
+      "gold": [
+        "플랭크"
+      ],
+      "results": [
+        {
+          "name": "플랭크",
+          "score": null
+        },
+        {
+          "name": "체스트프레스",
+          "score": null
+        },
+        {
+          "name": "런지",
+          "score": null
+        },
+        {
+          "name": "원암 덤벨로우",
+          "score": null
+        },
+        {
+          "name": "케이블 크로스오버",
+          "score": null
+        }
+      ],
+      "latencyMs": 1328
+    },
+    {
+      "query": "랫풀다운 하는 법",
+      "type": "exact_name",
+      "gold": [
+        "랫풀다운"
+      ],
+      "results": [
+        {
+          "name": "랫풀다운",
+          "score": null
+        },
+        {
+          "name": "밴드 풀어파트",
+          "score": null
+        },
+        {
+          "name": "케이블 크로스오버",
+          "score": null
+        },
+        {
+          "name": "원암 덤벨로우",
+          "score": null
+        },
+        {
+          "name": "한 발 브릿지",
+          "score": null
+        }
+      ],
+      "latencyMs": 1496
+    },
+    {
+      "query": "허벅지 앞쪽 운동 추천해줘",
+      "type": "body_part",
+      "gold": [
+        "레그익스텐션",
+        "레그프레스",
+        "스미스머신 스쿼트"
+      ],
+      "results": [
+        {
+          "name": "레그익스텐션",
+          "score": null
+        },
+        {
+          "name": "스미스머신 스쿼트",
+          "score": null
+        },
+        {
+          "name": "레그프레스",
+          "score": null
+        },
+        {
+          "name": "런지",
+          "score": null
+        },
+        {
+          "name": "힙 어덕션 머신",
+          "score": null
+        }
+      ],
+      "latencyMs": 1767
+    },
+    {
+      "query": "허벅지 뒤쪽 운동 추천해줘",
+      "type": "body_part",
+      "gold": [
+        "레그컬 머신"
+      ],
+      "results": [
+        {
+          "name": "레그컬 머신",
+          "score": null
+        },
+        {
+          "name": "런지",
+          "score": null
+        },
+        {
+          "name": "스미스머신 스쿼트",
+          "score": null
+        },
+        {
+          "name": "레그프레스",
+          "score": null
+        },
+        {
+          "name": "힙 어덕션 머신",
+          "score": null
+        }
+      ],
+      "latencyMs": 1954
+    },
+    {
+      "query": "엉덩이 옆쪽 키우는 머신",
+      "type": "body_part",
+      "gold": [
+        "힙 어브덕션 머신"
+      ],
+      "results": [
+        {
+          "name": "힙 어브덕션 머신",
+          "score": null
+        },
+        {
+          "name": "힙쓰러스트 머신",
+          "score": null
+        },
+        {
+          "name": "스미스머신 스쿼트",
+          "score": null
+        },
+        {
+          "name": "힙 어덕션 머신",
+          "score": null
+        },
+        {
+          "name": "레그컬 머신",
+          "score": null
+        }
+      ],
+      "latencyMs": 1732
+    },
+    {
+      "query": "허벅지 안쪽 근육 운동",
+      "type": "body_part",
+      "gold": [
+        "힙 어덕션 머신"
+      ],
+      "results": [
+        {
+          "name": "힙 어덕션 머신",
+          "score": null
+        },
+        {
+          "name": "런지",
+          "score": null
+        },
+        {
+          "name": "레그프레스",
+          "score": null
+        },
+        {
+          "name": "스미스머신 스쿼트",
+          "score": null
+        },
+        {
+          "name": "레그익스텐션",
+          "score": null
+        }
+      ],
+      "latencyMs": 2563
+    },
+    {
+      "query": "가슴 운동 뭐가 있어?",
+      "type": "body_part",
+      "gold": [
+        "체스트프레스",
+        "케이블 크로스오버"
+      ],
+      "results": [
+        {
+          "name": "체스트프레스",
+          "score": null
+        },
+        {
+          "name": "케이블 크로스오버",
+          "score": null
+        },
+        {
+          "name": "랫풀다운",
+          "score": null
+        },
+        {
+          "name": "밴드 풀어파트",
+          "score": null
+        },
+        {
+          "name": "힙쓰러스트 머신",
+          "score": null
+        }
+      ],
+      "latencyMs": 1659
+    },
+    {
+      "query": "등 운동 추천",
+      "type": "body_part",
+      "gold": [
+        "랫풀다운",
+        "시티드 로우 머신",
+        "원암 덤벨로우"
+      ],
+      "results": [
+        {
+          "name": "시티드 로우 머신",
+          "score": null
+        },
+        {
+          "name": "랫풀다운",
+          "score": null
+        },
+        {
+          "name": "원암 덤벨로우",
+          "score": null
+        },
+        {
+          "name": "체스트프레스",
+          "score": null
+        },
+        {
+          "name": "플랭크",
+          "score": null
+        }
+      ],
+      "latencyMs": 1751
+    },
+    {
+      "query": "어깨 옆쪽 운동",
+      "type": "body_part",
+      "gold": [
+        "사이드 레터럴레이즈 머신"
+      ],
+      "results": [
+        {
+          "name": "사이드 레터럴레이즈 머신",
+          "score": null
+        },
+        {
+          "name": "숄더프레스 머신",
+          "score": null
+        },
+        {
+          "name": "밴드 풀어파트",
+          "score": null
+        },
+        {
+          "name": "랫풀다운",
+          "score": null
+        },
+        {
+          "name": "힙 어브덕션 머신",
+          "score": null
+        }
+      ],
+      "latencyMs": 1368
+    },
+    {
+      "query": "코어 운동 알려줘",
+      "type": "body_part",
+      "gold": [
+        "플랭크",
+        "케이블 우드촙"
+      ],
+      "results": [
+        {
+          "name": "플랭크",
+          "score": null
+        },
+        {
+          "name": "케이블 우드촙",
+          "score": null
+        },
+        {
+          "name": "한 발 브릿지",
+          "score": null
+        },
+        {
+          "name": "힙 어덕션 머신",
+          "score": null
+        },
+        {
+          "name": "시티드 로우 머신",
+          "score": null
+        }
+      ],
+      "latencyMs": 1467
+    },
+    {
+      "query": "골반 쪽 운동 있어?",
+      "type": "body_part",
+      "gold": [
+        "힙 어브덕션 머신",
+        "힙 어덕션 머신",
+        "한 발 브릿지"
+      ],
+      "results": [
+        {
+          "name": "한 발 브릿지",
+          "score": null
+        },
+        {
+          "name": "힙 어덕션 머신",
+          "score": null
+        },
+        {
+          "name": "힙 어브덕션 머신",
+          "score": null
+        },
+        {
+          "name": "런지",
+          "score": null
+        },
+        {
+          "name": "케이블 우드촙",
+          "score": null
+        }
+      ],
+      "latencyMs": 2558
+    },
+    {
+      "query": "등 넓어지고 싶은데 무슨 운동 해야 해?",
+      "type": "goal",
+      "gold": [
+        "랫풀다운"
+      ],
+      "results": [
+        {
+          "name": "랫풀다운",
+          "score": null
+        },
+        {
+          "name": "시티드 로우 머신",
+          "score": null
+        },
+        {
+          "name": "원암 덤벨로우",
+          "score": null
+        },
+        {
+          "name": "사이드 레터럴레이즈 머신",
+          "score": null
+        },
+        {
+          "name": "레그프레스",
+          "score": null
+        }
+      ],
+      "latencyMs": 1495
+    },
+    {
+      "query": "어깨 넓어 보이고 싶어",
+      "type": "goal",
+      "gold": [
+        "랫풀다운",
+        "사이드 레터럴레이즈 머신"
+      ],
+      "results": [
+        {
+          "name": "사이드 레터럴레이즈 머신",
+          "score": null
+        },
+        {
+          "name": "랫풀다운",
+          "score": null
+        },
+        {
+          "name": "숄더프레스 머신",
+          "score": null
+        },
+        {
+          "name": "밴드 풀어파트",
+          "score": null
+        },
+        {
+          "name": "레그프레스",
+          "score": null
+        }
+      ],
+      "latencyMs": 1673
+    },
+    {
+      "query": "엉덩이를 키우고 싶어요",
+      "type": "goal",
+      "gold": [
+        "힙쓰러스트 머신"
+      ],
+      "results": [
+        {
+          "name": "힙쓰러스트 머신",
+          "score": null
+        },
+        {
+          "name": "힙 어브덕션 머신",
+          "score": null
+        },
+        {
+          "name": "레그프레스",
+          "score": null
+        },
+        {
+          "name": "스미스머신 스쿼트",
+          "score": null
+        },
+        {
+          "name": "레그컬 머신",
+          "score": null
+        }
+      ],
+      "latencyMs": 1627
+    },
+    {
+      "query": "허벅지 볼륨을 키우고 싶어요",
+      "type": "goal",
+      "gold": [
+        "스미스머신 스쿼트",
+        "레그프레스"
+      ],
+      "results": [
+        {
+          "name": "스미스머신 스쿼트",
+          "score": null
+        },
+        {
+          "name": "레그프레스",
+          "score": null
+        },
+        {
+          "name": "레그익스텐션",
+          "score": null
+        },
+        {
+          "name": "런지",
+          "score": null
+        },
+        {
+          "name": "레그컬 머신",
+          "score": null
+        }
+      ],
+      "latencyMs": 1496
+    },
+    {
+      "query": "가슴 안쪽 선을 만들고 싶어요",
+      "type": "goal",
+      "gold": [
+        "케이블 크로스오버"
+      ],
+      "results": [
+        {
+          "name": "케이블 크로스오버",
+          "score": null
+        },
+        {
+          "name": "체스트프레스",
+          "score": null
+        },
+        {
+          "name": "랫풀다운",
+          "score": null
+        },
+        {
+          "name": "힙 어덕션 머신",
+          "score": null
+        },
+        {
+          "name": "밴드 풀어파트",
+          "score": null
+        }
+      ],
+      "latencyMs": 1251
+    },
+    {
+      "query": "등 두께를 키우고 싶어요",
+      "type": "goal",
+      "gold": [
+        "시티드 로우 머신"
+      ],
+      "results": [
+        {
+          "name": "시티드 로우 머신",
+          "score": null
+        },
+        {
+          "name": "원암 덤벨로우",
+          "score": null
+        },
+        {
+          "name": "랫풀다운",
+          "score": null
+        },
+        {
+          "name": "레그프레스",
+          "score": null
+        },
+        {
+          "name": "체스트프레스",
+          "score": null
+        }
+      ],
+      "latencyMs": 1636
+    },
+    {
+      "query": "밸런스 감각을 기르고 싶어요",
+      "type": "goal",
+      "gold": [
+        "런지",
+        "한 발 브릿지"
+      ],
+      "results": [
+        {
+          "name": "한 발 브릿지",
+          "score": null
+        },
+        {
+          "name": "런지",
+          "score": null
+        },
+        {
+          "name": "힙 어덕션 머신",
+          "score": null
+        },
+        {
+          "name": "힙 어브덕션 머신",
+          "score": null
+        },
+        {
+          "name": "랫풀다운",
+          "score": null
+        }
+      ],
+      "latencyMs": 1369
+    },
+    {
+      "query": "허리 라인 만들고 싶어요",
+      "type": "goal",
+      "gold": [
+        "케이블 우드촙"
+      ],
+      "results": [
+        {
+          "name": "케이블 우드촙",
+          "score": null
+        },
+        {
+          "name": "플랭크",
+          "score": null
+        },
+        {
+          "name": "힙 어브덕션 머신",
+          "score": null
+        },
+        {
+          "name": "한 발 브릿지",
+          "score": null
+        },
+        {
+          "name": "힙 어덕션 머신",
+          "score": null
+        }
+      ],
+      "latencyMs": 1379
+    },
+    {
+      "query": "어깨를 전체적으로 강화하고 싶어요",
+      "type": "goal",
+      "gold": [
+        "숄더프레스 머신"
+      ],
+      "results": [
+        {
+          "name": "숄더프레스 머신",
+          "score": null
+        },
+        {
+          "name": "사이드 레터럴레이즈 머신",
+          "score": null
+        },
+        {
+          "name": "밴드 풀어파트",
+          "score": null
+        },
+        {
+          "name": "랫풀다운",
+          "score": null
+        },
+        {
+          "name": "원암 덤벨로우",
+          "score": null
+        }
+      ],
+      "latencyMs": 1507
+    },
+    {
+      "query": "오늘 하체 위주로 운동하고 싶은데 뭐부터 할까",
+      "type": "natural_language",
+      "gold": [
+        "레그프레스",
+        "스미스머신 스쿼트",
+        "런지",
+        "레그컬 머신",
+        "레그익스텐션"
+      ],
+      "results": [
+        {
+          "name": "스미스머신 스쿼트",
+          "score": null
+        },
+        {
+          "name": "레그프레스",
+          "score": null
+        },
+        {
+          "name": "런지",
+          "score": null
+        },
+        {
+          "name": "레그익스텐션",
+          "score": null
+        },
+        {
+          "name": "레그컬 머신",
+          "score": null
+        }
+      ],
+      "latencyMs": 1713
+    },
+    {
+      "query": "가슴이랑 어깨 같이 운동할 수 있는 거 있어?",
+      "type": "natural_language",
+      "gold": [
+        "체스트프레스",
+        "케이블 크로스오버",
+        "숄더프레스 머신",
+        "사이드 레터럴레이즈 머신"
+      ],
+      "results": [
+        {
+          "name": "체스트프레스",
+          "score": null
+        },
+        {
+          "name": "숄더프레스 머신",
+          "score": null
+        },
+        {
+          "name": "사이드 레터럴레이즈 머신",
+          "score": null
+        },
+        {
+          "name": "케이블 크로스오버",
+          "score": null
+        },
+        {
+          "name": "랫풀다운",
+          "score": null
+        }
+      ],
+      "latencyMs": 1489
+    },
+    {
+      "query": "요즘 앉아있는 시간이 많아서 몸이 뻐근해",
+      "type": "natural_language",
+      "gold": [
+        "폼롤러 흉추 스트레칭",
+        "밴드 풀어파트"
+      ],
+      "results": [
+        {
+          "name": "폼롤러 흉추 스트레칭",
+          "score": null
+        },
+        {
+          "name": "시티드 로우 머신",
+          "score": null
+        },
+        {
+          "name": "랫풀다운",
+          "score": null
+        },
+        {
+          "name": "힙 어브덕션 머신",
+          "score": null
+        },
+        {
+          "name": "힙 어덕션 머신",
+          "score": null
+        }
+      ],
+      "latencyMs": 1698
+    },
+    {
+      "query": "저번 운동보다 조금 더 힘든 하체 운동 없을까",
+      "type": "natural_language",
+      "gold": [
+        "스미스머신 스쿼트",
+        "레그프레스"
+      ],
+      "results": [
+        {
+          "name": "레그프레스",
+          "score": null
+        },
+        {
+          "name": "스미스머신 스쿼트",
+          "score": null
+        },
+        {
+          "name": "런지",
+          "score": null
+        },
+        {
+          "name": "힙쓰러스트 머신",
+          "score": null
+        },
+        {
+          "name": "레그익스텐션",
+          "score": null
+        }
+      ],
+      "latencyMs": 1751
+    },
+    {
+      "query": "운동 초보인데 시작하기 쉬운 거 알려줘",
+      "type": "natural_language",
+      "gold": [
+        "플랭크",
+        "레그프레스",
+        "체스트프레스"
+      ],
+      "results": [
+        {
+          "name": "플랭크",
+          "score": null
+        },
+        {
+          "name": "체스트프레스",
+          "score": null
+        },
+        {
+          "name": "힙 어브덕션 머신",
+          "score": null
+        },
+        {
+          "name": "랫풀다운",
+          "score": null
+        },
+        {
+          "name": "시티드 로우 머신",
+          "score": null
+        }
+      ],
+      "latencyMs": 1725
+    },
+    {
+      "query": "거북목 교정하고 싶어요",
+      "type": "synonym",
+      "gold": [
+        "폼롤러 흉추 스트레칭"
+      ],
+      "results": [
+        {
+          "name": "폼롤러 흉추 스트레칭",
+          "score": null
+        },
+        {
+          "name": "밴드 풀어파트",
+          "score": null
+        },
+        {
+          "name": "시티드 로우 머신",
+          "score": null
+        },
+        {
+          "name": "원암 덤벨로우",
+          "score": null
+        },
+        {
+          "name": "한 발 브릿지",
+          "score": null
+        }
+      ],
+      "latencyMs": 2095
+    },
+    {
+      "query": "라운드숄더에 좋은 운동",
+      "type": "synonym",
+      "gold": [
+        "밴드 풀어파트"
+      ],
+      "results": [
+        {
+          "name": "밴드 풀어파트",
+          "score": null
+        },
+        {
+          "name": "시티드 로우 머신",
+          "score": null
+        },
+        {
+          "name": "랫풀다운",
+          "score": null
+        },
+        {
+          "name": "숄더프레스 머신",
+          "score": null
+        },
+        {
+          "name": "사이드 레터럴레이즈 머신",
+          "score": null
+        }
+      ],
+      "latencyMs": 1329
+    },
+    {
+      "query": "굽은 어깨 펴고 싶어요",
+      "type": "synonym",
+      "gold": [
+        "밴드 풀어파트"
+      ],
+      "results": [
+        {
+          "name": "밴드 풀어파트",
+          "score": null
+        },
+        {
+          "name": "랫풀다운",
+          "score": null
+        },
+        {
+          "name": "숄더프레스 머신",
+          "score": null
+        },
+        {
+          "name": "사이드 레터럴레이즈 머신",
+          "score": null
+        },
+        {
+          "name": "체스트프레스",
+          "score": null
+        }
+      ],
+      "latencyMs": 1756
+    },
+    {
+      "query": "짝가슴 교정할 수 있을까요",
+      "type": "synonym",
+      "gold": [
+        "케이블 크로스오버",
+        "체스트프레스"
+      ],
+      "results": [
+        {
+          "name": "체스트프레스",
+          "score": null
+        },
+        {
+          "name": "케이블 크로스오버",
+          "score": null
+        },
+        {
+          "name": "원암 덤벨로우",
+          "score": null
+        },
+        {
+          "name": "한 발 브릿지",
+          "score": null
+        },
+        {
+          "name": "플랭크",
+          "score": null
+        }
+      ],
+      "latencyMs": 1744
+    },
+    {
+      "query": "애플힙 만들고 싶어요",
+      "type": "synonym",
+      "gold": [
+        "힙쓰러스트 머신"
+      ],
+      "results": [
+        {
+          "name": "힙쓰러스트 머신",
+          "score": null
+        },
+        {
+          "name": "힙 어브덕션 머신",
+          "score": null
+        },
+        {
+          "name": "레그프레스",
+          "score": null
+        },
+        {
+          "name": "런지",
+          "score": null
+        },
+        {
+          "name": "힙 어덕션 머신",
+          "score": null
+        }
+      ],
+      "latencyMs": 1550
+    },
+    {
+      "query": "허벅지 라인 정리하고 싶어요",
+      "type": "synonym",
+      "gold": [
+        "레그익스텐션",
+        "레그컬 머신"
+      ],
+      "results": [
+        {
+          "name": "힙 어덕션 머신",
+          "score": null
+        },
+        {
+          "name": "레그컬 머신",
+          "score": null
+        },
+        {
+          "name": "런지",
+          "score": null
+        },
+        {
+          "name": "힙 어브덕션 머신",
+          "score": null
+        },
+        {
+          "name": "레그프레스",
+          "score": null
+        }
+      ],
+      "latencyMs": 1527
+    },
+    {
+      "query": "기구 없이 자세 교정하고 싶어",
+      "type": "equipment",
+      "gold": [
+        "밴드 풀어파트",
+        "폼롤러 흉추 스트레칭"
+      ],
+      "results": [
+        {
+          "name": "한 발 브릿지",
+          "score": null
+        },
+        {
+          "name": "플랭크",
+          "score": null
+        },
+        {
+          "name": "밴드 풀어파트",
+          "score": null
+        },
+        {
+          "name": "런지",
+          "score": null
+        },
+        {
+          "name": "폼롤러 흉추 스트레칭",
+          "score": null
+        }
+      ],
+      "latencyMs": 2912
+    },
+    {
+      "query": "기구 없이 집에서 할 수 있는 운동",
+      "type": "equipment",
+      "gold": [
+        "플랭크",
+        "한 발 브릿지"
+      ],
+      "results": [
+        {
+          "name": "플랭크",
+          "score": null
+        },
+        {
+          "name": "한 발 브릿지",
+          "score": null
+        },
+        {
+          "name": "밴드 풀어파트",
+          "score": null
+        },
+        {
+          "name": "랫풀다운",
+          "score": null
+        },
+        {
+          "name": "사이드 레터럴레이즈 머신",
+          "score": null
+        }
+      ],
+      "latencyMs": 1380
+    },
+    {
+      "query": "저중량으로도 가능한 가슴운동",
+      "type": "equipment",
+      "gold": [
+        "체스트프레스"
+      ],
+      "results": [
+        {
+          "name": "체스트프레스",
+          "score": null
+        },
+        {
+          "name": "케이블 크로스오버",
+          "score": null
+        },
+        {
+          "name": "레그익스텐션",
+          "score": null
+        },
+        {
+          "name": "플랭크",
+          "score": null
+        },
+        {
+          "name": "랫풀다운",
+          "score": null
+        }
+      ],
+      "latencyMs": 1320
+    },
+    {
+      "query": "덤벨만으로 할 수 있는 등 운동",
+      "type": "equipment",
+      "gold": [
+        "원암 덤벨로우"
+      ],
+      "results": [
+        {
+          "name": "원암 덤벨로우",
+          "score": null
+        },
+        {
+          "name": "랫풀다운",
+          "score": null
+        },
+        {
+          "name": "시티드 로우 머신",
+          "score": null
+        },
+        {
+          "name": "케이블 크로스오버",
+          "score": null
+        },
+        {
+          "name": "케이블 우드촙",
+          "score": null
+        }
+      ],
+      "latencyMs": 1247
+    },
+    {
+      "query": "밴드로 할 수 있는 어깨 교정 운동",
+      "type": "equipment",
+      "gold": [
+        "밴드 풀어파트"
+      ],
+      "results": [
+        {
+          "name": "밴드 풀어파트",
+          "score": null
+        },
+        {
+          "name": "사이드 레터럴레이즈 머신",
+          "score": null
+        },
+        {
+          "name": "한 발 브릿지",
+          "score": null
+        },
+        {
+          "name": "숄더프레스 머신",
+          "score": null
+        },
+        {
+          "name": "랫풀다운",
+          "score": null
+        }
+      ],
+      "latencyMs": 1330
+    },
+    {
+      "query": "케이블 머신으로 할 수 있는 코어 운동",
+      "type": "equipment",
+      "gold": [
+        "케이블 우드촙"
+      ],
+      "results": [
+        {
+          "name": "케이블 우드촙",
+          "score": null
+        },
+        {
+          "name": "케이블 크로스오버",
+          "score": null
+        },
+        {
+          "name": "사이드 레터럴레이즈 머신",
+          "score": null
+        },
+        {
+          "name": "숄더프레스 머신",
+          "score": null
+        },
+        {
+          "name": "플랭크",
+          "score": null
+        }
+      ],
+      "latencyMs": 1327
+    },
+    {
+      "query": "좌우 비대칭 교정 운동",
+      "type": "posture_correction",
+      "gold": [
+        "원암 덤벨로우",
+        "한 발 브릿지"
+      ],
+      "results": [
+        {
+          "name": "한 발 브릿지",
+          "score": null
+        },
+        {
+          "name": "원암 덤벨로우",
+          "score": null
+        },
+        {
+          "name": "밴드 풀어파트",
+          "score": null
+        },
+        {
+          "name": "폼롤러 흉추 스트레칭",
+          "score": null
+        },
+        {
+          "name": "런지",
+          "score": null
+        }
+      ],
+      "latencyMs": 1592
+    },
+    {
+      "query": "어깨가 좌우 다른 것 같아요",
+      "type": "posture_correction",
+      "gold": [
+        "원암 덤벨로우"
+      ],
+      "results": [
+        {
+          "name": "원암 덤벨로우",
+          "score": null
+        },
+        {
+          "name": "밴드 풀어파트",
+          "score": null
+        },
+        {
+          "name": "사이드 레터럴레이즈 머신",
+          "score": null
+        },
+        {
+          "name": "숄더프레스 머신",
+          "score": null
+        },
+        {
+          "name": "랫풀다운",
+          "score": null
+        }
+      ],
+      "latencyMs": 1860
+    },
+    {
+      "query": "다리 길이가 짝짝이인 것 같아요",
+      "type": "posture_correction",
+      "gold": [
+        "한 발 브릿지"
+      ],
+      "results": [
+        {
+          "name": "한 발 브릿지",
+          "score": null
+        },
+        {
+          "name": "힙 어브덕션 머신",
+          "score": null
+        },
+        {
+          "name": "힙 어덕션 머신",
+          "score": null
+        },
+        {
+          "name": "런지",
+          "score": null
+        },
+        {
+          "name": "레그익스텐션",
+          "score": null
+        }
+      ],
+      "latencyMs": 1710
+    },
+    {
+      "query": "골반이 안정적이지 않은 것 같아요",
+      "type": "posture_correction",
+      "gold": [
+        "힙 어브덕션 머신",
+        "힙 어덕션 머신",
+        "한 발 브릿지"
+      ],
+      "results": [
+        {
+          "name": "한 발 브릿지",
+          "score": null
+        },
+        {
+          "name": "힙 어브덕션 머신",
+          "score": null
+        },
+        {
+          "name": "힙 어덕션 머신",
+          "score": null
+        },
+        {
+          "name": "플랭크",
+          "score": null
+        },
+        {
+          "name": "런지",
+          "score": null
+        }
+      ],
+      "latencyMs": 1851
+    },
+    {
+      "query": "허리 굽은 거 펴고 싶어요",
+      "type": "posture_correction",
+      "gold": [
+        "폼롤러 흉추 스트레칭"
+      ],
+      "results": [
+        {
+          "name": "체스트프레스",
+          "score": null
+        },
+        {
+          "name": "레그프레스",
+          "score": null
+        },
+        {
+          "name": "런지",
+          "score": null
+        },
+        {
+          "name": "사이드 레터럴레이즈 머신",
+          "score": null
+        },
+        {
+          "name": "힙 어덕션 머신",
+          "score": null
+        }
+      ],
+      "latencyMs": 2870
+    },
+    {
+      "query": "구부정한 자세 고치고 싶어요",
+      "type": "posture_correction",
+      "gold": [
+        "밴드 풀어파트",
+        "폼롤러 흉추 스트레칭"
+      ],
+      "results": [
+        {
+          "name": "폼롤러 흉추 스트레칭",
+          "score": null
+        },
+        {
+          "name": "밴드 풀어파트",
+          "score": null
+        },
+        {
+          "name": "시티드 로우 머신",
+          "score": null
+        },
+        {
+          "name": "원암 덤벨로우",
+          "score": null
+        },
+        {
+          "name": "랫풀다운",
+          "score": null
+        }
+      ],
+      "latencyMs": 1898
+    },
+    {
+      "query": "무릎이 안 좋은데 할 수 있는 하체운동",
+      "type": "multi_condition",
+      "gold": [
+        "레그익스텐션"
+      ],
+      "results": [
+        {
+          "name": "레그프레스",
+          "score": null
+        },
+        {
+          "name": "레그컬 머신",
+          "score": null
+        },
+        {
+          "name": "레그익스텐션",
+          "score": null
+        },
+        {
+          "name": "한 발 브릿지",
+          "score": null
+        },
+        {
+          "name": "런지",
+          "score": null
+        }
+      ],
+      "latencyMs": 1493
+    },
+    {
+      "query": "허리 통증이 있어도 할 수 있는 코어 운동",
+      "type": "multi_condition",
+      "gold": [
+        "플랭크"
+      ],
+      "results": [
+        {
+          "name": "플랭크",
+          "score": null
+        },
+        {
+          "name": "한 발 브릿지",
+          "score": null
+        },
+        {
+          "name": "케이블 우드촙",
+          "score": null
+        },
+        {
+          "name": "힙 어브덕션 머신",
+          "score": null
+        },
+        {
+          "name": "힙 어덕션 머신",
+          "score": null
+        }
+      ],
+      "latencyMs": 1415
+    },
+    {
+      "query": "어깨 아픈데 기구 없이 할 수 있는 교정 운동",
+      "type": "multi_condition",
+      "gold": [
+        "밴드 풀어파트",
+        "폼롤러 흉추 스트레칭"
+      ],
+      "results": [
+        {
+          "name": "폼롤러 흉추 스트레칭",
+          "score": null
+        },
+        {
+          "name": "밴드 풀어파트",
+          "score": null
+        },
+        {
+          "name": "플랭크",
+          "score": null
+        },
+        {
+          "name": "한 발 브릿지",
+          "score": null
+        },
+        {
+          "name": "사이드 레터럴레이즈 머신",
+          "score": null
+        }
+      ],
+      "latencyMs": 1881
+    },
+    {
+      "query": "무릎 부담 적으면서 엉덩이에 집중되는 운동",
+      "type": "multi_condition",
+      "gold": [
+        "힙쓰러스트 머신"
+      ],
+      "results": [
+        {
+          "name": "힙쓰러스트 머신",
+          "score": null
+        },
+        {
+          "name": "힙 어브덕션 머신",
+          "score": null
+        },
+        {
+          "name": "레그프레스",
+          "score": null
+        },
+        {
+          "name": "레그컬 머신",
+          "score": null
+        },
+        {
+          "name": "런지",
+          "score": null
+        }
+      ],
+      "latencyMs": 1518
+    },
+    {
+      "query": "허리에 부담 적은 코어 운동",
+      "type": "multi_condition",
+      "gold": [
+        "플랭크"
+      ],
+      "results": [
+        {
+          "name": "플랭크",
+          "score": null
+        },
+        {
+          "name": "한 발 브릿지",
+          "score": null
+        },
+        {
+          "name": "케이블 우드촙",
+          "score": null
+        },
+        {
+          "name": "힙 어덕션 머신",
+          "score": null
+        },
+        {
+          "name": "사이드 레터럴레이즈 머신",
+          "score": null
+        }
+      ],
+      "latencyMs": 1304
+    },
+    {
+      "query": "저중량이면서 초보도 할 수 있는 등 운동",
+      "type": "multi_condition",
+      "gold": [
+        "랫풀다운",
+        "시티드 로우 머신"
+      ],
+      "results": [
+        {
+          "name": "랫풀다운",
+          "score": null
+        },
+        {
+          "name": "시티드 로우 머신",
+          "score": null
+        },
+        {
+          "name": "체스트프레스",
+          "score": null
+        },
+        {
+          "name": "플랭크",
+          "score": null
+        },
+        {
+          "name": "레그익스텐션",
+          "score": null
+        }
+      ],
+      "latencyMs": 1377
+    },
+    {
+      "query": "기구 없이 골반 밸런스 잡는 운동",
+      "type": "multi_condition",
+      "gold": [
+        "한 발 브릿지"
+      ],
+      "results": [
+        {
+          "name": "한 발 브릿지",
+          "score": null
+        },
+        {
+          "name": "플랭크",
+          "score": null
+        },
+        {
+          "name": "런지",
+          "score": null
+        },
+        {
+          "name": "힙 어덕션 머신",
+          "score": null
+        },
+        {
+          "name": "힙 어브덕션 머신",
+          "score": null
+        }
+      ],
+      "latencyMs": 1890
+    },
+    {
+      "query": "허리 젖혀지지 않게 하면서 어깨 강화하는 운동",
+      "type": "multi_condition",
+      "gold": [
+        "숄더프레스 머신"
+      ],
+      "results": [
+        {
+          "name": "숄더프레스 머신",
+          "score": null
+        },
+        {
+          "name": "사이드 레터럴레이즈 머신",
+          "score": null
+        },
+        {
+          "name": "랫풀다운",
+          "score": null
+        },
+        {
+          "name": "체스트프레스",
+          "score": null
+        },
+        {
+          "name": "레그컬 머신",
+          "score": null
+        }
+      ],
+      "latencyMs": 1528
+    },
+    {
+      "query": "힙쓰러스트 머신 알려줘",
+      "type": "exact_name",
+      "gold": [
+        "힙쓰러스트 머신"
+      ],
+      "results": [
+        {
+          "name": "힙쓰러스트 머신",
+          "score": null
+        },
+        {
+          "name": "힙 어덕션 머신",
+          "score": null
+        },
+        {
+          "name": "힙 어브덕션 머신",
+          "score": null
+        },
+        {
+          "name": "레그컬 머신",
+          "score": null
+        },
+        {
+          "name": "숄더프레스 머신",
+          "score": null
+        }
+      ],
+      "latencyMs": 1309
+    },
+    {
+      "query": "케이블 우드촙 방법",
+      "type": "exact_name",
+      "gold": [
+        "케이블 우드촙"
+      ],
+      "results": [
+        {
+          "name": "케이블 우드촙",
+          "score": null
+        },
+        {
+          "name": "케이블 크로스오버",
+          "score": null
+        },
+        {
+          "name": "밴드 풀어파트",
+          "score": null
+        },
+        {
+          "name": "체스트프레스",
+          "score": null
+        },
+        {
+          "name": "랫풀다운",
+          "score": null
+        }
+      ],
+      "latencyMs": 1446
+    },
+    {
+      "query": "원암 덤벨로우 자세",
+      "type": "exact_name",
+      "gold": [
+        "원암 덤벨로우"
+      ],
+      "results": [
+        {
+          "name": "원암 덤벨로우",
+          "score": null
+        },
+        {
+          "name": "시티드 로우 머신",
+          "score": null
+        },
+        {
+          "name": "랫풀다운",
+          "score": null
+        },
+        {
+          "name": "밴드 풀어파트",
+          "score": null
+        },
+        {
+          "name": "폼롤러 흉추 스트레칭",
+          "score": null
+        }
+      ],
+      "latencyMs": 1363
+    },
+    {
+      "query": "한 발 브릿지 하는 법",
+      "type": "exact_name",
+      "gold": [
+        "한 발 브릿지"
+      ],
+      "results": [
+        {
+          "name": "한 발 브릿지",
+          "score": null
+        },
+        {
+          "name": "런지",
+          "score": null
+        },
+        {
+          "name": "플랭크",
+          "score": null
+        },
+        {
+          "name": "케이블 크로스오버",
+          "score": null
+        },
+        {
+          "name": "랫풀다운",
+          "score": null
+        }
+      ],
+      "latencyMs": 1255
+    },
+    {
+      "query": "폼롤러 흉추 스트레칭 방법",
+      "type": "exact_name",
+      "gold": [
+        "폼롤러 흉추 스트레칭"
+      ],
+      "results": [
+        {
+          "name": "폼롤러 흉추 스트레칭",
+          "score": null
+        },
+        {
+          "name": "랫풀다운",
+          "score": null
+        },
+        {
+          "name": "레그컬 머신",
+          "score": null
+        },
+        {
+          "name": "사이드 레터럴레이즈 머신",
+          "score": null
+        },
+        {
+          "name": "체스트프레스",
+          "score": null
+        }
+      ],
+      "latencyMs": 1807
+    },
+    {
+      "query": "런지 대신 할 수 있는 하체 운동 있어?",
+      "type": "goal",
+      "gold": [
+        "레그프레스",
+        "스미스머신 스쿼트"
+      ],
+      "results": [
+        {
+          "name": "레그프레스",
+          "score": null
+        },
+        {
+          "name": "스미스머신 스쿼트",
+          "score": null
+        },
+        {
+          "name": "레그익스텐션",
+          "score": null
+        },
+        {
+          "name": "레그컬 머신",
+          "score": null
+        },
+        {
+          "name": "힙쓰러스트 머신",
+          "score": null
+        }
+      ],
+      "latencyMs": 1439
+    },
+    {
+      "query": "숄더프레스 말고 어깨 강화하는 다른 운동",
+      "type": "goal",
+      "gold": [
+        "사이드 레터럴레이즈 머신"
+      ],
+      "results": [
+        {
+          "name": "사이드 레터럴레이즈 머신",
+          "score": null
+        },
+        {
+          "name": "밴드 풀어파트",
+          "score": null
+        },
+        {
+          "name": "랫풀다운",
+          "score": null
+        },
+        {
+          "name": "숄더프레스 머신",
+          "score": null
+        },
+        {
+          "name": "체스트프레스",
+          "score": null
+        }
+      ],
+      "latencyMs": 1371
+    }
+  ]
+}

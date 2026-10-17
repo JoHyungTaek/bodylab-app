@@ -4,6 +4,7 @@ import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { createClient } from '@supabase/supabase-js';
+import { rerankCandidates } from './rerank.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -103,56 +104,79 @@ async function embedText(text, inputType) {
     body: JSON.stringify({ input: [text], model: 'voyage-3-lite', input_type: inputType })
   });
   const data = await res.json();
-  if (!res.ok) {
-    console.error('Voyage API 응답 상태:', res.status, JSON.stringify(data));
-    throw new Error((data.error && data.error.message) || data.detail || JSON.stringify(data) || 'embedding failed');
-  }
+  if (!res.ok) throw new Error(data.error || 'embedding failed');
   return data.data[0].embedding;
 }
 
-// 운동사전 20개 항목 (프론트엔드 EXERCISE_LIBRARY와 내용 동일, 임베딩 시드용)
+// 운동사전 20개 항목 (프론트엔드 EXERCISE_LIBRARY와 이름은 동일, 검색 품질 개선을 위해 메타데이터 보강)
 const EXERCISE_LIBRARY_SEED = [
-  { name:'레그프레스', content:'하체 운동. 등받이에 등을 붙이고 발판을 어깨너비로 밟은 뒤 무릎을 밀어냅니다. 허벅지와 둔근을 키우고 싶을 때.' },
-  { name:'스미스머신 스쿼트', content:'하체 운동. 바를 어깨에 걸치고 무릎과 엉덩이를 굽혀 앉았다 일어납니다. 하체 전반, 허벅지 볼륨.' },
-  { name:'레그컬 머신', content:'하체 운동. 패드를 발목 뒤에 걸고 무릎을 굽혀 당깁니다. 허벅지 뒤쪽 햄스트링 강화.' },
-  { name:'레그익스텐션', content:'하체 운동. 패드를 발목 앞에 걸고 무릎을 펴서 다리를 듭니다. 허벅지 앞쪽 대퇴사두근 강화. 무릎이 약할 때는 중량을 낮게.' },
-  { name:'힙쓰러스트 머신', content:'하체 운동. 골반을 위로 밀어올려 엉덩이를 조입니다. 둔근(엉덩이) 강화, 힙업.' },
-  { name:'런지', content:'하체 운동. 한 발을 앞으로 내딛고 무릎을 굽혔다 원위치. 허벅지, 둔근, 균형 감각.' },
-  { name:'랫풀다운', content:'등·어깨 운동. 바를 가슴 쪽으로 당깁니다. 등 넓히기, 어깨 넓어 보이게.' },
-  { name:'사이드 레터럴레이즈 머신', content:'어깨 운동. 팔을 옆으로 들어올립니다. 어깨 측면 삼각근, 어깨 넓어 보이게.' },
-  { name:'숄더프레스 머신', content:'어깨 운동. 손잡이를 머리 위로 밀어올립니다. 어깨 전반 강화.' },
-  { name:'시티드 로우 머신', content:'등 운동. 손잡이를 몸 쪽으로 당겨 견갑골을 모읍니다. 등 두께, 자세 교정.' },
-  { name:'케이블 크로스오버', content:'가슴 운동. 케이블을 앞으로 모아 당깁니다. 가슴 안쪽 라인.' },
-  { name:'체스트프레스', content:'가슴 운동. 손잡이를 앞으로 밀어냅니다. 가슴 전반 강화, 저중량으로도 가능.' },
-  { name:'케이블 우드촙', content:'코어 운동. 대각선으로 몸통을 회전하며 당깁니다. 코어, 허리 라인.' },
-  { name:'플랭크', content:'코어 운동. 팔꿈치와 발끝으로 버팁니다. 복부 코어, 기구 없이 맨몸으로 가능. 허리 통증 있을 때도 비교적 안전.' },
-  { name:'원암 덤벨로우', content:'등 운동, 자세 교정. 한 손으로 덤벨을 당깁니다. 좌우 비대칭 교정, 어깨 비대칭.' },
-  { name:'밴드 풀어파트', content:'자세 교정 운동. 밴드를 양옆으로 벌립니다. 굽은 어깨(라운드 숄더) 교정, 기구 없이 가능.' },
-  { name:'폼롤러 흉추 스트레칭', content:'자세 교정 스트레칭. 등 중간을 늘려줍니다. 거북목, 굽은 등 교정, 통증 완화.' },
-  { name:'힙 어브덕션 머신', content:'골반 밸런스 운동. 다리를 옆으로 벌립니다. 엉덩이 옆쪽 중둔근, 골반 안정성.' },
-  { name:'힙 어덕션 머신', content:'골반 밸런스 운동. 다리를 모읍니다. 허벅지 안쪽 근육.' },
-  { name:'한 발 브릿지', content:'골반 밸런스, 코어 운동. 한 다리로 골반을 들어올립니다. 좌우 비대칭 교정, 기구 없이 가능.' }
+  { name:'레그프레스', muscle_groups:['하체','허벅지 앞쪽','둔근'], goals:['허벅지 볼륨 키우기','둔근 강화','하체 전반 강화'], equipment:'머신', difficulty:'초급', keywords:['허벅지','엉덩이','하체','볼륨'], aliases:['레그 프레스'], precautions:'무릎을 완전히 펴지 말고 살짝 굽힌 상태에서 멈추세요.', description:'등받이에 등을 붙이고 발판을 어깨너비로 밟은 뒤 무릎이 발끝 방향과 일치하도록 밀어냅니다.' },
+  { name:'스미스머신 스쿼트', muscle_groups:['하체','허벅지','둔근'], goals:['하체 전반 강화','허벅지 볼륨 키우기'], equipment:'머신', difficulty:'중급', keywords:['허벅지','하체','볼륨','스쿼트'], aliases:['스미스 스쿼트'], precautions:'무릎이 발끝보다 안쪽으로 모이지 않게 주의하세요.', description:'바를 어깨 위(승모근)에 걸치고 발을 어깨너비로 벌린 뒤, 무릎과 엉덩이를 동시에 굽혀 앉았다 일어납니다.' },
+  { name:'레그컬 머신', muscle_groups:['하체','허벅지 뒤쪽','햄스트링'], goals:['허벅지 뒤쪽 키우기','햄스트링 강화'], equipment:'머신', difficulty:'초급', keywords:['허벅지 뒤쪽','햄스트링','하체'], aliases:['레그 컬'], precautions:'반동 없이 천천히 당기고 천천히 풀어주세요.', description:'엎드리거나 앉아서 패드를 발목 뒤쪽에 걸고 무릎을 굽혀 당깁니다.' },
+  { name:'레그익스텐션', muscle_groups:['하체','허벅지 앞쪽','대퇴사두근'], goals:['허벅지 앞쪽 키우기','무릎 부담 적은 하체 운동'], equipment:'머신', difficulty:'초급', keywords:['허벅지 앞쪽','무릎','하체'], aliases:['레그 익스텐션'], precautions:'무릎 관절에 무리가 가지 않도록 중량을 과하게 두지 마세요.', description:'앉아서 패드를 발목 앞쪽에 걸고 무릎을 펴서 다리를 들어올립니다. 다른 하체 운동보다 무릎 관절 부담이 상대적으로 적은 편입니다.' },
+  { name:'힙쓰러스트 머신', muscle_groups:['하체','엉덩이','둔근'], goals:['엉덩이 키우기','힙업'], equipment:'머신', difficulty:'초급', keywords:['엉덩이','둔근','힙업'], aliases:['힙 쓰러스트'], precautions:'정점에서 1~2초 버티면 둔근 자극이 커져요.', description:'어깨를 벤치에 기대고 골반을 위로 밀어올려 엉덩이를 조입니다.' },
+  { name:'런지', muscle_groups:['하체','허벅지','둔근'], goals:['허벅지 볼륨 키우기','균형 감각 기르기'], equipment:'맨몸/덤벨', difficulty:'초급', keywords:['허벅지','엉덩이','밸런스','균형'], aliases:[], precautions:'앞 무릎이 발끝을 넘지 않게 주의하세요.', description:'한 발을 앞으로 크게 내딛고 양 무릎을 90도로 굽혔다가 원위치합니다.' },
+  { name:'랫풀다운', muscle_groups:['등','어깨'], goals:['등 넓히기','어깨 넓어 보이게 하기'], equipment:'머신', difficulty:'초급', keywords:['등','어깨','넓어지고 싶은','넓히기'], aliases:['랫 풀다운'], precautions:'어깨를 으쓱하지 말고 등 근육으로 당기는 느낌을 유지하세요.', description:'바를 어깨너비보다 약간 넓게 잡고, 가슴 쪽으로 당깁니다.' },
+  { name:'사이드 레터럴레이즈 머신', muscle_groups:['등','어깨','측면 삼각근'], goals:['어깨 넓어 보이게 하기','어깨 옆쪽 강화'], equipment:'머신', difficulty:'초급', keywords:['어깨','넓어지고 싶은','옆쪽'], aliases:['사이드 레터럴'], precautions:'반동을 쓰지 않는 게 중요해요.', description:'팔꿈치를 살짝 굽힌 채 옆으로 들어올려 어깨 옆쪽(측면 삼각근)을 자극합니다.' },
+  { name:'숄더프레스 머신', muscle_groups:['등','어깨'], goals:['어깨 전체적으로 강화하기'], equipment:'머신', difficulty:'초급', keywords:['어깨','강화'], aliases:['숄더 프레스'], precautions:'허리가 과하게 젖혀지지 않도록 코어에 힘을 주세요.', description:'손잡이를 어깨 높이에서 잡고 머리 위로 밀어올립니다.' },
+  { name:'시티드 로우 머신', muscle_groups:['등'], goals:['등 두께 키우기','자세 교정'], equipment:'머신', difficulty:'초급', keywords:['등','두께','자세'], aliases:['시티드 로우'], precautions:'', description:'손잡이를 몸 쪽으로 당겨 견갑골을 모읍니다. 등 두께를 키우고 자세 교정에도 도움이 됩니다.' },
+  { name:'케이블 크로스오버', muscle_groups:['가슴'], goals:['가슴 안쪽 선 만들기'], equipment:'케이블 머신', difficulty:'중급', keywords:['가슴','안쪽','라인'], aliases:['케이블 크로스'], precautions:'팔꿈치를 살짝 굽힌 채로 진행하세요.', description:'양쪽 케이블을 잡고 팔을 앞으로 모아 가슴을 조입니다.' },
+  { name:'체스트프레스', muscle_groups:['가슴'], goals:['가슴 전반 강화'], equipment:'머신', difficulty:'초급', keywords:['가슴','저중량','초보'], aliases:['체스트 프레스'], precautions:'', description:'손잡이를 앞으로 밀어냅니다. 저중량으로도 가능해 운동을 처음 시작하는 분에게도 적합합니다.' },
+  { name:'케이블 우드촙', muscle_groups:['코어'], goals:['코어 강화','허리 라인 만들기'], equipment:'케이블 머신', difficulty:'중급', keywords:['코어','허리','라인'], aliases:['우드촙'], precautions:'허리가 아닌 코어 회전으로 움직이세요.', description:'케이블을 한쪽 위(또는 아래)에서 잡고 대각선으로 몸통을 회전하며 당깁니다.' },
+  { name:'플랭크', muscle_groups:['코어','복부'], goals:['복부 코어 강화'], equipment:'맨몸', difficulty:'초급', keywords:['코어','복부','기구 없이','맨몸','허리 통증'], aliases:[], precautions:'엉덩이가 처지거나 너무 올라가지 않게 일직선을 유지합니다.', description:'팔꿈치와 발끝으로 몸을 지탱합니다. 기구 없이 맨몸으로 가능하고, 허리 통증이 있을 때도 비교적 안전한 코어 운동입니다.' },
+  { name:'원암 덤벨로우', muscle_groups:['등'], goals:['좌우 비대칭 교정','어깨 비대칭 교정'], equipment:'덤벨', difficulty:'초급', keywords:['좌우','비대칭','어깨','덤벨'], aliases:['원암 로우'], precautions:'좌우를 번갈아 동일한 횟수로 진행하세요.', description:'한 손과 무릎을 벤치에 대고, 반대손으로 덤벨을 골반 옆으로 당깁니다. 좌우 비대칭이 있을 때 도움이 됩니다.' },
+  { name:'밴드 풀어파트', muscle_groups:['등','어깨','자세 교정'], goals:['굽은 어깨 펴기','라운드숄더 교정'], equipment:'밴드', difficulty:'초급', keywords:['굽은 어깨','라운드숄더','자세','기구 없이','밴드'], aliases:['밴드 풀 어파트'], precautions:'', description:'밴드를 어깨너비로 잡고 팔을 양옆으로 벌려 등 견갑골을 모읍니다. 라운드숄더(굽은 어깨) 교정에 좋습니다.' },
+  { name:'폼롤러 흉추 스트레칭', muscle_groups:['등','자세 교정'], goals:['거북목 교정','굽은 등 교정'], equipment:'폼롤러', difficulty:'초급', keywords:['거북목','굽은 등','자세','스트레칭','기구 없이'], aliases:['흉추 스트레칭'], precautions:'', description:'폼롤러를 등 중간(흉추)에 대고 누운 뒤, 팔을 머리 위로 뻗으며 상체를 살짝 젖혀 늘려줍니다.' },
+  { name:'힙 어브덕션 머신', muscle_groups:['골반','엉덩이 옆쪽','중둔근'], goals:['골반 안정성','엉덩이 옆쪽 강화'], equipment:'머신', difficulty:'초급', keywords:['골반','밸런스','엉덩이 옆쪽','중둔근'], aliases:['힙 어브덕션'], precautions:'엉덩이 옆쪽(중둔근) 자극에 집중하세요.', description:'앉아서 패드를 무릎 바깥쪽에 대고 다리를 벌립니다.' },
+  { name:'힙 어덕션 머신', muscle_groups:['골반','허벅지 안쪽'], goals:['허벅지 안쪽 근육 강화'], equipment:'머신', difficulty:'초급', keywords:['골반','밸런스','허벅지 안쪽'], aliases:['힙 어덕션'], precautions:'허벅지 안쪽 근육을 쓰는 느낌으로 진행하세요.', description:'앉아서 패드를 무릎 안쪽에 대고 다리를 모읍니다.' },
+  { name:'한 발 브릿지', muscle_groups:['골반','코어','둔근'], goals:['좌우 비대칭 교정','골반 밸런스'], equipment:'맨몸', difficulty:'초급', keywords:['좌우','비대칭','골반','다리 길이','기구 없이'], aliases:['원레그 브릿지'], precautions:'좌우 번갈아 동일 횟수로 하세요.', description:'누운 상태에서 한쪽 다리를 들고, 반대쪽 다리로만 골반을 들어올립니다. 좌우 비대칭이 있을 때 도움이 됩니다.' }
 ];
+
+function buildDocumentText(item){
+  const parts = [
+    `${item.name}${item.aliases.length ? ` (${item.aliases.join(', ')})` : ''}`,
+    `부위: ${item.muscle_groups.join(', ')}`,
+    `목적: ${item.goals.join(', ')}`,
+    `기구: ${item.equipment}`,
+    `난이도: ${item.difficulty}`,
+    item.keywords.length ? `키워드: ${item.keywords.join(', ')}` : '',
+    item.description,
+    item.precautions ? `주의사항: ${item.precautions}` : ''
+  ];
+  return parts.filter(Boolean).join('. ');
+}
 
 function sleep(ms){ return new Promise(resolve => setTimeout(resolve, ms)); }
 
 // 서버 시작 시 한 번만 임베딩 생성 (이미 있으면 건너뜀)
-// 결제 수단 미등록 계정은 Voyage API가 1분에 3번으로 제한하므로, 요청 사이에 대기 시간을 둠
-// (결제 수단을 등록하면 이 대기 없이 훨씬 빨리 끝나요 — .env에 카드 등록 여부와 무관하게 동작은 동일)
+// 결제 수단 미등록 Voyage 계정은 분당 3회로 제한되므로, 요청 사이에 대기 시간을 둠 (VOYAGE_REQUEST_DELAY_MS로 조절 가능)
 async function ensureLibraryEmbeddings(){
   if (!VOYAGE_API_KEY) return;
   try {
     const { count } = await supabaseAdmin.from('exercise_embeddings').select('*', { count: 'exact', head: true });
     if (count && count > 0) return;
-    console.log(`운동사전 임베딩 생성 중... (최초 1회, 결제 수단 미등록 시 약 ${Math.ceil(EXERCISE_LIBRARY_SEED.length / 3)}분 소요)`);
+    const delayMs = Number(process.env.VOYAGE_REQUEST_DELAY_MS || 21000);
+    console.log(`운동사전 임베딩 생성 중... (최초 1회, 약 ${Math.ceil(EXERCISE_LIBRARY_SEED.length * delayMs / 1000 / 60)}분 소요 예상)`);
+    let failCount = 0;
     for (let i = 0; i < EXERCISE_LIBRARY_SEED.length; i++) {
       const item = EXERCISE_LIBRARY_SEED[i];
-      const embedding = await embedText(`${item.name}: ${item.content}`, 'document');
-      await supabaseAdmin.from('exercise_embeddings').upsert({ name: item.name, content: item.content, embedding });
-      console.log(`  (${i + 1}/${EXERCISE_LIBRARY_SEED.length}) ${item.name} 완료`);
-      if (i < EXERCISE_LIBRARY_SEED.length - 1) await sleep(21000); // 1분에 3개 제한 → 21초 간격
+      const documentText = buildDocumentText(item);
+      try {
+        const embedding = await embedText(documentText, 'document');
+        const { error } = await supabaseAdmin.from('exercise_embeddings').upsert({ name: item.name, content: documentText, embedding });
+        if (error) throw error;
+        console.log(`  (${i + 1}/${EXERCISE_LIBRARY_SEED.length}) ${item.name} 완료`);
+      } catch (itemErr) {
+        failCount++;
+        console.error(`  (${i + 1}/${EXERCISE_LIBRARY_SEED.length}) ${item.name} 저장 실패:`, itemErr.message || itemErr);
+      }
+      if (i < EXERCISE_LIBRARY_SEED.length - 1) await sleep(delayMs);
     }
-    console.log('운동사전 임베딩 생성 완료');
+    if (failCount > 0) {
+      console.warn(`⚠️  운동사전 임베딩 ${failCount}개 저장 실패 — 위 로그를 확인하세요. (전체 성공이 아니면 검색 결과가 불완전할 수 있어요)`);
+    } else {
+      console.log('운동사전 임베딩 생성 완료 (전체 성공)');
+    }
   } catch (e) {
     console.warn('임베딩 생성 실패:', e.message || e);
   }
@@ -160,14 +184,39 @@ async function ensureLibraryEmbeddings(){
 
 app.get('/api/library-search', requireUser, async (req, res) => {
   const q = (req.query.q || '').toString().trim();
+  const mode = (req.query.mode || 'vector').toString(); // 'vector'(기존) | 'hybrid'(개선판) | 'rerank'(하이브리드 + LLM 재정렬)
   if (!q) return res.status(400).json({ error: '검색어가 필요해요.' });
   if (!VOYAGE_API_KEY) return res.status(500).json({ error: '서버에 VOYAGE_API_KEY가 설정되지 않았어요.' });
 
   try {
     const queryEmbedding = await embedText(q, 'query');
+    if (mode === 'rerank') {
+      const { data, error } = await supabaseAdmin.rpc('match_exercises_hybrid', {
+        query_embedding: queryEmbedding,
+        query_text: q,
+        match_count: Number(process.env.RERANK_CANDIDATES || 10),
+        vector_weight: Number(process.env.VECTOR_WEIGHT || 0.7),
+        keyword_weight: Number(process.env.KEYWORD_WEIGHT || 0.3)
+      });
+      if (error) throw error;
+      const { names, usedFallback } = await rerankCandidates(ANTHROPIC_API_KEY, q, data, 5);
+      const byName = Object.fromEntries(data.map(r => [r.name, r]));
+      return res.json({ results: names.map(n => byName[n]), mode: 'rerank', usedFallback });
+    }
+    if (mode === 'hybrid') {
+      const { data, error } = await supabaseAdmin.rpc('match_exercises_hybrid', {
+        query_embedding: queryEmbedding,
+        query_text: q,
+        match_count: 5,
+        vector_weight: Number(process.env.VECTOR_WEIGHT || 0.7),
+        keyword_weight: Number(process.env.KEYWORD_WEIGHT || 0.3)
+      });
+      if (error) throw error;
+      return res.json({ results: data, mode: 'hybrid' });
+    }
     const { data, error } = await supabaseAdmin.rpc('match_exercises', { query_embedding: queryEmbedding, match_count: 5 });
     if (error) throw error;
-    res.json({ results: data });
+    res.json({ results: data, mode: 'vector' });
   } catch (err) {
     console.error('library search failed:', err);
     res.status(500).json({ error: '검색에 실패했어요.' });
@@ -430,8 +479,10 @@ app.post('/api/report', requireUser, async (req, res) => {
     const system = [
       '너는 친근한 한국어 헬스 코치야. 사용자의 최근 30일 데이터를 보고 짧은 리포트를 써줘.',
       goalLine,
-      `최근 30일 측정 기록:\n${measurementSummary}`,
-      `최근 30일 운동 기록:\n${journalSummary}`,
+      `최근 30일 측정 기록:
+${measurementSummary}`,
+      `최근 30일 운동 기록:
+${journalSummary}`,
       '리포트는 다음 순서로 써줘: 1) 이번 기간 요약(2~3문장) 2) 잘한 점 3) 아쉬운 점 또는 놓친 부분 4) 다음 달 제안 1~2가지.',
       '체중감량/칼로리/식단 수치는 다루지 말고 운동·자세·꾸준함 중심으로만 써줘. 너무 길지 않게, 300자 내외로 요약해줘.'
     ].join('\n\n');
